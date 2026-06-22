@@ -1,0 +1,39 @@
+name: "AI 服务连通性检测"
+description: "检测 ChatGPT 与 Gemini 的可用性、出口地区和响应延迟"
+author: "fancha0"
+homepage: "https://github.com/fancha0/egern-ai-check"
+icon: "network"
+
+env_schema:
+  POLICY:
+    name: "检测策略（可选）"
+    description: "填写策略组或节点名称；留空时遵循现有分流规则"
+    default_value: ""
+  REFRESH_INTERVAL:
+    name: "刷新间隔"
+    description: "小组件自动重新检测的间隔，单位为秒"
+    default_value: "900"
+    options:
+      - "300"
+      - "900"
+      - "1800"
+      - "3600"
+  REQUEST_TIMEOUT:
+    name: "请求超时"
+    description: "单个检测请求的超时时间，单位为毫秒"
+    default_value: "8000"
+    options:
+      - "5000"
+      - "8000"
+      - "12000"
+
+scriptings:
+  - generic:
+      name: "ai-connectivity-widget"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-ai-check/main/Egern/ai-connectivity.js"
+      update_interval: 86400
+      timeout: 20
+
+widgets:
+  - name: "AI 服务检测"
+    script_name: "ai-connectivity-widget"
