@@ -5,7 +5,7 @@ author: "fancha0"
 scriptings:
   - generic:
       name: "ai-check"
-      script_url: "https://raw.githubusercontent.com/fancha0/my-icons/main/ai-check.js"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-ai-check/main/ai-check.js"
       timeout: 20
 
 widgets:
