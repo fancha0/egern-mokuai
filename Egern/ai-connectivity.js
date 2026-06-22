@@ -92,23 +92,91 @@ function result(name, state, statusText, region, latency, detail, url) {
   };
 }
 
-function classifyChatGPT(session, region) {
-  if (!session.ok) {
+function openAIResponseText(response) {
+  return `${getHeader(response.headers, "location")}\n${response.body || ""}`.toLowerCase();
+}
+
+function openAIIsRegionRestricted(response) {
+  const textValue = openAIResponseText(response);
+  const markers = [
+    "unsupported_country_region_territory",
+    "unsupported country, region, or territory",
+    "country, region, or territory not supported",
+    "country or region is not supported",
+    "country is not supported",
+    "unsupported_country",
+  ];
+  return markers.some((marker) => textValue.includes(marker));
+}
+
+function openAIIsExpectedAuthError(response) {
+  const textValue = openAIResponseText(response);
+  const markers = [
+    "missing bearer authentication",
+    "missing bearer",
+    "invalid api key",
+    "incorrect api key",
+    "invalid_api_key",
+    "authentication required",
+  ];
+  return markers.some((marker) => textValue.includes(marker));
+}
+
+function openAIIsCloudflareChallenge(response) {
+  const mitigated = getHeader(response.headers, "cf-mitigated").toLowerCase();
+  const textValue = openAIResponseText(response);
+  return (
+    mitigated === "challenge" ||
+    textValue.includes("challenge-platform") ||
+    textValue.includes("cf-chl-") ||
+    textValue.includes("enable javascript and cookies to continue")
+  );
+}
+
+function classifyChatGPT(apiProbe, trace, region) {
+  if (!apiProbe.ok) {
+    if (!trace.ok) {
+      return result(
+        "ChatGPT",
+        "failure",
+        "连接失败",
+        region,
+        apiProbe.latency,
+        "API 与 trace 均不可达",
+        CHATGPT_URL,
+      );
+    }
     return result(
       "ChatGPT",
-      "failure",
-      "连接失败",
+      "unknown",
+      "检测异常",
       region,
-      session.latency,
-      "请求超时或网络不可达",
+      apiProbe.latency,
+      "API 请求失败，但 trace 可达",
       CHATGPT_URL,
     );
   }
 
-  const status = session.status;
-  const location = getHeader(session.headers, "location").toLowerCase();
-  if ((status >= 200 && status < 300) || status === 401) {
-    return result("ChatGPT", "success", "已解锁", region, session.latency, `HTTP ${status}`, CHATGPT_URL);
+  const status = apiProbe.status;
+  if (openAIIsRegionRestricted(apiProbe)) {
+    return result("ChatGPT", "restricted", "地区受限", region, apiProbe.latency, `HTTP ${status}`, CHATGPT_URL);
+  }
+  if (openAIIsCloudflareChallenge(apiProbe)) {
+    return result(
+      "ChatGPT",
+      "warning",
+      "需要验证",
+      region,
+      apiProbe.latency,
+      "Cloudflare 人机验证",
+      CHATGPT_URL,
+    );
+  }
+  if (status >= 200 && status < 300) {
+    return result("ChatGPT", "success", "已解锁", region, apiProbe.latency, `HTTP ${status}`, CHATGPT_URL);
+  }
+  if (status === 401 && openAIIsExpectedAuthError(apiProbe)) {
+    return result("ChatGPT", "success", "已解锁", region, apiProbe.latency, "API 可达，需要认证", CHATGPT_URL);
   }
   if (status === 429) {
     return result(
@@ -116,27 +184,17 @@ function classifyChatGPT(session, region) {
       "warning",
       "可连接（限流）",
       region,
-      session.latency,
+      apiProbe.latency,
       "HTTP 429",
       CHATGPT_URL,
     );
-  }
-  if (
-    status >= 300 &&
-    status < 400 &&
-    (location.includes("auth") || location.includes("login") || location.includes("chatgpt.com"))
-  ) {
-    return result("ChatGPT", "success", "已解锁", region, session.latency, "需要登录", CHATGPT_URL);
-  }
-  if (status === 403) {
-    return result("ChatGPT", "restricted", "访问受限", region, session.latency, "HTTP 403", CHATGPT_URL);
   }
   return result(
     "ChatGPT",
     "unknown",
     "检测异常",
     region,
-    session.latency,
+    apiProbe.latency,
     `HTTP ${status}`,
     CHATGPT_URL,
   );
@@ -438,14 +496,14 @@ export default async function (ctx) {
   });
   const serviceOptions = makeRequestOptions(policy, requestTimeout, { redirect: "manual" });
 
-  const [trace, chatgptSession, geminiResponse] = await Promise.all([
+  const [trace, openAIProbe, geminiResponse] = await Promise.all([
     get(ctx, "https://chatgpt.com/cdn-cgi/trace", traceOptions, true),
-    get(ctx, "https://chatgpt.com/api/auth/session", serviceOptions, false),
+    get(ctx, "https://api.openai.com/v1/models", serviceOptions, true),
     get(ctx, GEMINI_URL, serviceOptions, true),
   ]);
 
   const exitRegion = parseTraceRegion(trace);
-  const chatgpt = classifyChatGPT(chatgptSession, exitRegion);
+  const chatgpt = classifyChatGPT(openAIProbe, trace, exitRegion);
   const gemini = classifyGemini(geminiResponse, policy ? exitRegion : "--");
   const services = [chatgpt, gemini];
 
