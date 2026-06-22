@@ -1,0 +1,12 @@
+name: "AI 连通性检测"
+description: "测试 ChatGPT 和 Gemini 的网络连通性"
+author: "fancha0"
+
+scriptings:
+  - generic:
+      name: "ai-check"
+      script_url: "https://raw.githubusercontent.com/fancha0/my-icons/main/ai-check.js"
+      timeout: 20
+
+widgets:
+  - name: "ai-check"
