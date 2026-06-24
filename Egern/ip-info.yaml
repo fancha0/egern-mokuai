@@ -1,0 +1,54 @@
+name: "IP 信息检测"
+description: "检测当前出口或指定策略的 IP、ISP、ASN、地理位置和风险概览"
+author: "fancha0"
+homepage: "https://github.com/fancha0/egern-mokuai"
+icon: "location.magnifyingglass"
+
+env_schema:
+  POLICY:
+    name: "检测策略（可选）"
+    description: "填写策略组或节点名称；留空时遵循现有分流规则"
+    default_value: ""
+  REFRESH_INTERVAL:
+    name: "刷新间隔"
+    description: "小组件自动重新检测的间隔，单位为秒"
+    default_value: "900"
+    options:
+      - "300"
+      - "900"
+      - "1800"
+      - "3600"
+  REQUEST_TIMEOUT:
+    name: "请求超时"
+    description: "单个检测请求的超时时间，单位为毫秒"
+    default_value: "8000"
+    options:
+      - "5000"
+      - "8000"
+      - "12000"
+  IP_API_ENDPOINT:
+    name: "高级 IP 接口（可选）"
+    description: "支持 {ip} 占位符；留空时使用公开接口"
+    default_value: ""
+  IP_API_TOKEN:
+    name: "高级 IP Token（可选）"
+    description: "高级 IP 情报接口的 Token；留空时不发送认证头"
+    default_value: ""
+  NOTIFY_ON_REFRESH:
+    name: "刷新时通知"
+    description: "开启后每次小组件刷新都会弹出 IP 信息概览；默认关闭"
+    default_value: "false"
+    options:
+      - "false"
+      - "true"
+
+scriptings:
+  - generic:
+      name: "ip-info-widget"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-mokuai/main/Egern/ip-info.js"
+      update_interval: 86400
+      timeout: 20
+
+widgets:
+  - name: "IP 信息检测"
+    script_name: "ip-info-widget"
