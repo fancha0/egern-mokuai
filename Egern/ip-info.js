@@ -162,14 +162,14 @@ function parseIPPayload(textValue) {
 function buildAdvancedURL(endpoint, ip) {
   if (!endpoint) return "";
   if (endpoint.includes(IPINFO_DASHBOARD_URL)) return "";
-  if (endpoint.includes("{ip}")) return endpoint.replaceAll("{ip}", encodeURIComponent(ip));
+  if (endpoint.includes("{ip}")) return endpoint.split("{ip}").join(encodeURIComponent(ip));
   const separator = endpoint.includes("?") ? "&" : "?";
   return `${endpoint}${separator}ip=${encodeURIComponent(ip)}`;
 }
 
-function buildIPInfoLiteURL(ip, token) {
+function buildIPInfoLiteURL(ipOrMe, token) {
   if (!token) return "";
-  return `https://api.ipinfo.io/lite/${encodeURIComponent(ip)}?token=${encodeURIComponent(token)}`;
+  return `https://api.ipinfo.io/lite/${encodeURIComponent(ipOrMe)}?token=${encodeURIComponent(token)}`;
 }
 
 function parsePublicInfo(ip, payload) {
@@ -248,8 +248,17 @@ function parseAdvancedInfo(ip, payload, baseInfo) {
   };
 }
 
-function buildIPProbeURLs(endpoint) {
+function shortError(value) {
+  const textValue = firstString(value);
+  if (!textValue) return "未知错误";
+  return textValue.length > 90 ? `${textValue.slice(0, 88)}...` : textValue;
+}
+
+function buildIPProbeURLs(endpoint, token) {
   const urls = [];
+  const useIPInfoProbe =
+    token && (!endpoint || endpoint.includes(IPINFO_DASHBOARD_URL) || endpoint.includes("ipinfo.io"));
+  if (useIPInfoProbe) urls.push(buildIPInfoLiteURL("me", token));
   if (endpoint && !endpoint.includes("{ip}") && !endpoint.includes(IPINFO_DASHBOARD_URL)) urls.push(endpoint);
   for (const url of PUBLIC_IP_URLS) {
     if (!urls.includes(url)) urls.push(url);
@@ -257,11 +266,11 @@ function buildIPProbeURLs(endpoint) {
   return urls;
 }
 
-async function detectIP(ctx, policy, timeout, endpoint) {
+async function detectIP(ctx, policy, timeout, endpoint, token) {
   const options = makeRequestOptions(policy, timeout);
   const errors = [];
   let totalLatency = 0;
-  for (const url of buildIPProbeURLs(endpoint)) {
+  for (const url of buildIPProbeURLs(endpoint, token)) {
     const response = await getText(ctx, url, options);
     totalLatency += response.latency;
     const ip = response.ok ? parseIPPayload(response.body) : "";
@@ -275,12 +284,13 @@ async function detectIP(ctx, policy, timeout, endpoint) {
     }
     errors.push(`${url}: ${response.error || `HTTP ${response.status}`}`);
   }
+  const detail = errors.map(shortError).join("；");
   return {
     ok: false,
     statusText: errors.some((error) => /timed? ?out|timeout|超时/i.test(error)) ? "检测超时" : "连接失败",
     color: COLORS.failure,
     latency: totalLatency,
-    detail: `出口 IP 获取失败：${errors.join("；")}`,
+    detail: `出口 IP 获取失败：${detail}`,
   };
 }
 
@@ -326,7 +336,8 @@ async function collectInfo(ctx, env) {
   const timeout = parseChoice(env.REQUEST_TIMEOUT, [5000, 8000, 12000], 8000);
   const endpoint = firstString(env.IP_API_ENDPOINT);
   const token = firstString(env.IP_API_TOKEN);
-  const ipProbe = await detectIP(ctx, policy, timeout, endpoint);
+  const showErrorDetail = String(env.SHOW_ERROR_DETAIL || "true").toLowerCase() !== "false";
+  const ipProbe = await detectIP(ctx, policy, timeout, endpoint, token);
   if (!ipProbe.ok) {
     return {
       ok: false,
@@ -339,11 +350,12 @@ async function collectInfo(ctx, env) {
       organization: "未知",
       asn: null,
       countryCode: "--",
-      location: "未知",
+      location: showErrorDetail ? shortError(ipProbe.detail) : "未知",
       attribute: "未知",
       source: "无",
       risk: { label: "未知", level: "unknown", color: COLORS.unknown },
       detail: ipProbe.detail,
+      showErrorDetail,
       checkedAt: new Date().toISOString(),
     };
   }
@@ -372,6 +384,7 @@ async function collectInfo(ctx, env) {
     color,
     latency: ipProbe.latency + (publicResult.latency || 0) + (advancedResult.latency || 0),
     detail,
+    showErrorDetail,
     checkedAt: new Date().toISOString(),
   };
 }
@@ -571,6 +584,11 @@ function renderSmall(info, refreshAfter) {
 }
 
 function renderMedium(info, refreshAfter) {
+  const rows = [
+    infoRow("ISP", info.isp),
+    infoRow("ASN", asnText(info.asn), COLORS.teal),
+    infoRow(info.ok ? "位置" : "错误", info.ok || !info.showErrorDetail ? info.location : info.detail, info.ok ? COLORS.secondary : COLORS.failure),
+  ];
   return widgetBase(
     refreshAfter,
     [
@@ -582,9 +600,7 @@ function renderMedium(info, refreshAfter) {
         { type: "spacer" },
         text(info.countryCode || "--", { color: info.color, font: { size: "subheadline", weight: "bold" } }),
       ]),
-      infoRow("ISP", info.isp),
-      infoRow("ASN", asnText(info.asn), COLORS.teal),
-      infoRow("位置", info.location),
+      ...rows,
     ],
     { url: ipLookupURL(info) },
   );

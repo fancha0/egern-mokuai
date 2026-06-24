@@ -34,6 +34,13 @@ env_schema:
     name: "IPinfo Token（可选）"
     description: "从 https://ipinfo.io/dashboard/token 获取；留空时使用公开接口"
     default_value: ""
+  SHOW_ERROR_DETAIL:
+    name: "显示错误详情"
+    description: "检测失败时在小组件中显示接口和错误摘要，方便排查"
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
   NOTIFY_ON_REFRESH:
     name: "刷新时通知"
     description: "开启后每次小组件刷新都会弹出 IP 信息概览；默认关闭"
