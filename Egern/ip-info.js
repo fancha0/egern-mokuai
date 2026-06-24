@@ -10,8 +10,15 @@ const COLORS = {
   background: { light: "#F2F2F7", dark: "#1C1C1E" },
 };
 
-const PUBLIC_IP_URL = "https://api.ipify.org?format=json";
+const PUBLIC_IP_URLS = [
+  "https://api.ip.sb/ip",
+  "https://api.ipify.org?format=json",
+  "https://icanhazip.com",
+  "https://ifconfig.me/ip",
+  "https://www.cloudflare.com/cdn-cgi/trace",
+];
 const PUBLIC_INFO_URL = "https://ipwho.is";
+const IP_PATTERN = /\b(?:\d{1,3}\.){3}\d{1,3}\b|(?:[a-f0-9]{0,4}:){2,}[a-f0-9]{0,4}/i;
 
 function parseChoice(value, allowed, fallback) {
   const parsed = Number.parseInt(value || "", 10);
@@ -69,6 +76,28 @@ async function getJSON(ctx, url, options) {
   }
 }
 
+async function getText(ctx, url, options) {
+  const startedAt = Date.now();
+  try {
+    const response = await ctx.http.get(url, options);
+    const textValue = await response.text();
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      body: textValue,
+      latency: Date.now() - startedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      body: "",
+      latency: Date.now() - startedAt,
+      error: stringifyError(error),
+    };
+  }
+}
+
 function firstString(...values) {
   for (const value of values) {
     if (value === undefined || value === null) continue;
@@ -113,6 +142,22 @@ function normalizeAttribute(value, fallback = "公开接口") {
   return firstString(value);
 }
 
+function parseIPFromText(textValue) {
+  const match = String(textValue || "").match(IP_PATTERN);
+  return match ? match[0] : "";
+}
+
+function parseIPPayload(textValue) {
+  const body = String(textValue || "").trim();
+  if (!body) return "";
+  try {
+    const data = JSON.parse(body);
+    return firstString(data.ip, data.query, data.address, data.origin) || parseIPFromText(body);
+  } catch {
+    return parseIPFromText(body);
+  }
+}
+
 function buildAdvancedURL(endpoint, ip) {
   if (!endpoint) return "";
   if (endpoint.includes("{ip}")) return endpoint.replaceAll("{ip}", encodeURIComponent(ip));
@@ -140,6 +185,18 @@ function parsePublicInfo(ip, payload) {
     attribute: "公开接口",
     risk: normalizeRisk("unknown"),
     detail: payload.success === false ? firstString(payload.message, "公开接口返回失败") : "公开接口查询成功",
+  };
+}
+
+function mergeLookupInfo(info, lookup) {
+  if (!lookup) return info;
+  return {
+    ...info,
+    asn: firstNumber(info.asn, lookup.asn),
+    countryCode: firstString(info.countryCode, lookup.country),
+    location: info.location === "未知" ? firstString(lookup.country, "未知") : info.location,
+    isp: info.isp === "未知" ? firstString(lookup.organization, "未知") : info.isp,
+    organization: info.organization === "未知" ? firstString(lookup.organization, "未知") : info.organization,
   };
 }
 
@@ -184,24 +241,39 @@ function parseAdvancedInfo(ip, payload, baseInfo) {
   };
 }
 
-async function detectIP(ctx, policy, timeout) {
+function buildIPProbeURLs(endpoint) {
+  const urls = [];
+  if (endpoint && !endpoint.includes("{ip}")) urls.push(endpoint);
+  for (const url of PUBLIC_IP_URLS) {
+    if (!urls.includes(url)) urls.push(url);
+  }
+  return urls;
+}
+
+async function detectIP(ctx, policy, timeout, endpoint) {
   const options = makeRequestOptions(policy, timeout);
-  const response = await getJSON(ctx, PUBLIC_IP_URL, options);
-  if (!response.ok || !response.data || !response.data.ip) {
-    const error = response.error || `HTTP ${response.status}`;
-    const statusText = /timed? ?out|timeout|超时/i.test(error) ? "检测超时" : "连接失败";
-    return {
-      ok: false,
-      statusText,
-      color: COLORS.failure,
-      latency: response.latency,
-      detail: `出口 IP 获取失败：${error}`,
-    };
+  const errors = [];
+  let totalLatency = 0;
+  for (const url of buildIPProbeURLs(endpoint)) {
+    const response = await getText(ctx, url, options);
+    totalLatency += response.latency;
+    const ip = response.ok ? parseIPPayload(response.body) : "";
+    if (ip) {
+      return {
+        ok: true,
+        ip,
+        latency: totalLatency,
+        sourceURL: url,
+      };
+    }
+    errors.push(`${url}: ${response.error || `HTTP ${response.status}`}`);
   }
   return {
-    ok: true,
-    ip: String(response.data.ip),
-    latency: response.latency,
+    ok: false,
+    statusText: errors.some((error) => /timed? ?out|timeout|超时/i.test(error)) ? "检测超时" : "连接失败",
+    color: COLORS.failure,
+    latency: totalLatency,
+    detail: `出口 IP 获取失败：${errors.join("；")}`,
   };
 }
 
@@ -224,7 +296,7 @@ async function queryPublicInfo(ctx, policy, timeout, ip) {
 
 async function queryAdvancedInfo(ctx, policy, timeout, endpoint, token, ip, baseInfo) {
   const url = buildAdvancedURL(endpoint, ip);
-  if (!url) return { ok: false, info: baseInfo, skipped: true };
+  if (!url || !endpoint.includes("{ip}")) return { ok: false, info: baseInfo, skipped: true };
   const headers = token ? { Authorization: `Bearer ${token}`, "X-API-Key": token } : {};
   const response = await getJSON(ctx, url, makeRequestOptions(policy, timeout, { headers }));
   if (!response.ok || !response.data) {
@@ -247,7 +319,7 @@ async function collectInfo(ctx, env) {
   const timeout = parseChoice(env.REQUEST_TIMEOUT, [5000, 8000, 12000], 8000);
   const endpoint = firstString(env.IP_API_ENDPOINT);
   const token = firstString(env.IP_API_TOKEN);
-  const ipProbe = await detectIP(ctx, policy, timeout);
+  const ipProbe = await detectIP(ctx, policy, timeout, endpoint);
   if (!ipProbe.ok) {
     return {
       ok: false,
@@ -270,9 +342,9 @@ async function collectInfo(ctx, env) {
   }
 
   const publicResult = await queryPublicInfo(ctx, policy, timeout, ipProbe.ip);
-  let info = publicResult.info;
+  let info = mergeLookupInfo(publicResult.info, typeof ctx.lookupIP === "function" ? ctx.lookupIP(ipProbe.ip) : null);
   let statusText = publicResult.ok ? info.statusText : "基础信息不完整";
-  let detail = publicResult.ok ? info.detail : `公开接口失败：${publicResult.error}`;
+  let detail = publicResult.ok ? `${info.detail}；IP 来源：${ipProbe.sourceURL}` : `公开接口失败：${publicResult.error}；IP 来源：${ipProbe.sourceURL}`;
 
   const advancedResult = await queryAdvancedInfo(ctx, policy, timeout, endpoint, token, ipProbe.ip, info);
   if (advancedResult.ok) {

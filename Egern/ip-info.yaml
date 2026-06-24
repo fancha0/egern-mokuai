@@ -27,8 +27,8 @@ env_schema:
       - "8000"
       - "12000"
   IP_API_ENDPOINT:
-    name: "高级 IP 接口（可选）"
-    description: "支持 {ip} 占位符；留空时使用公开接口"
+    name: "IP/高级接口（可选）"
+    description: "可填纯 IP 接口或支持 {ip} 的情报 JSON 接口；留空时使用内置多源"
     default_value: ""
   IP_API_TOKEN:
     name: "高级 IP Token（可选）"
