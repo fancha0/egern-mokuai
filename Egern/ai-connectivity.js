@@ -5,9 +5,12 @@ const COLORS = {
   failure: "#FF3B30",
   unknown: "#8E8E93",
   accent: "#0A84FF",
+  chatgpt: "#10A37F",
+  gemini: "#4B8BF5",
   text: { light: "#1C1C1E", dark: "#FFFFFF" },
   secondary: { light: "#636366", dark: "#AEAEB2" },
   background: { light: "#F2F2F7", dark: "#1C1C1E" },
+  card: { light: "#FFFFFF", dark: "#2C2C2E" },
 };
 
 const CHATGPT_URL = "https://chatgpt.com/";
@@ -274,6 +277,8 @@ function classifyGemini(response, region) {
   );
 }
 
+// ---------- UI ----------
+
 function text(textValue, options = {}) {
   return {
     type: "text",
@@ -297,10 +302,78 @@ function image(symbol, color, size) {
   };
 }
 
-function serviceLine(service, compact = false) {
-  const detail = compact
-    ? service.statusText
-    : `${service.statusText} · 地区：${service.region} · ${service.latency} ms`;
+function serviceMeta(service) {
+  if (service.name === "ChatGPT") {
+    return { symbol: "bubble.left.and.bubble.right.fill", brandColor: COLORS.chatgpt };
+  }
+  return { symbol: "sparkle", brandColor: COLORS.gemini };
+}
+
+function latencyColor(latency) {
+  if (latency <= 0) return COLORS.secondary;
+  if (latency < 400) return COLORS.success;
+  if (latency < 900) return COLORS.warning;
+  return COLORS.failure;
+}
+
+function statusDot(service) {
+  return image("circle.fill", service.color, 7);
+}
+
+// 品牌图标 + 名称
+function serviceTitle(service, nameFont) {
+  const meta = serviceMeta(service);
+  return {
+    type: "stack",
+    direction: "row",
+    alignItems: "center",
+    gap: 6,
+    children: [
+      image(meta.symbol, meta.brandColor, 15),
+      text(service.name, { font: nameFont }),
+    ],
+  };
+}
+
+// 卡片式服务行（中/大组件用）
+function serviceCard(service) {
+  return {
+    type: "stack",
+    direction: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: [9, 12],
+    backgroundColor: COLORS.card,
+    cornerRadius: 12,
+    url: service.url,
+    children: [
+      serviceTitle(service, { size: "subheadline", weight: "semibold" }),
+      { type: "spacer" },
+      text(`${service.region} · ${service.latency}ms`, {
+        color: latencyColor(service.latency),
+        font: { size: "caption1", weight: "medium" },
+        minScale: 0.6,
+      }),
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 4,
+        children: [
+          statusDot(service),
+          text(service.statusText, {
+            color: service.color,
+            font: { size: "caption1", weight: "semibold" },
+            minScale: 0.6,
+          }),
+        ],
+      },
+    ],
+  };
+}
+
+// 紧凑服务行（小组件用）
+function serviceLineCompact(service) {
   return {
     type: "stack",
     direction: "row",
@@ -308,14 +381,12 @@ function serviceLine(service, compact = false) {
     gap: 6,
     url: service.url,
     children: [
-      image(service.name === "ChatGPT" ? "sparkles" : "stars", service.color, compact ? 13 : 16),
-      text(service.name, {
-        font: { size: compact ? "footnote" : "subheadline", weight: "semibold" },
-      }),
+      statusDot(service),
+      text(service.name, { font: { size: "footnote", weight: "semibold" } }),
       { type: "spacer" },
-      text(detail, {
+      text(service.statusText, {
         color: service.color,
-        font: { size: compact ? "caption2" : "footnote", weight: "semibold" },
+        font: { size: "footnote", weight: "semibold" },
         align: "right",
         minScale: 0.55,
       }),
@@ -323,15 +394,26 @@ function serviceLine(service, compact = false) {
   };
 }
 
-function header(title = "AI 服务检测") {
+// 头部：左侧标题，右侧检测时间
+function header(checkedAt, title = "AI 服务检测") {
   return {
     type: "stack",
     direction: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
     children: [
-      image("network", COLORS.accent, 18),
-      text(title, { font: { size: "headline", weight: "bold" } }),
+      image("network", COLORS.accent, 13),
+      text(title, { color: COLORS.secondary, font: { size: "caption1", weight: "semibold" } }),
+      { type: "spacer" },
+      {
+        type: "date",
+        date: checkedAt,
+        format: "relative",
+        font: { size: "caption2" },
+        textColor: COLORS.secondary,
+        maxLines: 1,
+        minScale: 0.65,
+      },
     ],
   };
 }
@@ -341,7 +423,7 @@ function widgetBase(refreshAfter, children, options = {}) {
     type: "widget",
     refreshAfter,
     backgroundColor: options.backgroundColor || COLORS.background,
-    padding: options.padding === undefined ? 14 : options.padding,
+    padding: options.padding === undefined ? 12 : options.padding,
     gap: options.gap === undefined ? 8 : options.gap,
     children,
   };
@@ -349,9 +431,10 @@ function widgetBase(refreshAfter, children, options = {}) {
 
 function renderInline(services, refreshAfter) {
   const count = services.filter((service) => service.available).length;
+  const color = count === 2 ? COLORS.success : count === 1 ? COLORS.warning : COLORS.failure;
   return widgetBase(
     refreshAfter,
-    [text(`AI：${count}/2 可用`, { font: { size: "caption1", weight: "semibold" } })],
+    [text(`● AI 服务 ${count}/2 可用`, { color, font: { size: "caption1", weight: "semibold" } })],
     { padding: 0, gap: 0 },
   );
 }
@@ -384,37 +467,64 @@ function renderCircular(services, refreshAfter) {
 function renderRectangular(services, refreshAfter) {
   return widgetBase(
     refreshAfter,
-    services.map((service) =>
-      text(`${service.name}：${service.statusText}，地区：${service.region}`, {
-        color: service.color,
-        font: { size: "footnote", weight: "medium" },
-        url: service.url,
-        minScale: 0.55,
-      }),
-    ),
-    { padding: 0, gap: 2 },
+    services.map((service) => ({
+      type: "stack",
+      direction: "row",
+      alignItems: "center",
+      gap: 5,
+      url: service.url,
+      children: [
+        statusDot(service),
+        text(`${service.name} ${service.statusText} · ${service.region}`, {
+          color: COLORS.text,
+          font: { size: "footnote", weight: "medium" },
+          minScale: 0.55,
+        }),
+      ],
+    })),
+    { padding: 0, gap: 3 },
   );
 }
 
-function renderSmall(services, refreshAfter) {
+function renderSmall(services, refreshAfter, checkedAt) {
+  const count = services.filter((service) => service.available).length;
+  const color = count === 2 ? COLORS.success : count === 1 ? COLORS.warning : COLORS.failure;
   return widgetBase(refreshAfter, [
-    header("AI 连通性"),
+    header(checkedAt, "AI 连通性"),
+    {
+      type: "stack",
+      direction: "row",
+      alignItems: "center",
+      gap: 6,
+      children: [
+        text(`${count}/2`, { color, font: { size: "title1", weight: "bold" } }),
+        text("可用", { color: COLORS.secondary, font: { size: "footnote", weight: "medium" } }),
+      ],
+    },
     { type: "spacer" },
-    ...services.map((service) => serviceLine(service, true)),
+    ...services.map(serviceLineCompact),
   ]);
 }
 
-function renderMedium(services, refreshAfter) {
-  return widgetBase(refreshAfter, [header(), { type: "spacer" }, ...services.map((service) => serviceLine(service))]);
+function renderMedium(services, refreshAfter, checkedAt) {
+  return widgetBase(refreshAfter, [
+    header(checkedAt),
+    { type: "spacer" },
+    ...services.map(serviceCard),
+  ]);
 }
 
 function serviceDetail(service) {
+  const meta = serviceMeta(service);
   return {
     type: "stack",
     direction: "column",
     alignItems: "start",
-    gap: 5,
+    gap: 6,
     flex: 1,
+    padding: [10, 12],
+    backgroundColor: COLORS.card,
+    cornerRadius: 12,
     url: service.url,
     children: [
       {
@@ -423,16 +533,38 @@ function serviceDetail(service) {
         alignItems: "center",
         gap: 7,
         children: [
-          image(service.name === "ChatGPT" ? "sparkles" : "stars", service.color, 18),
+          image(meta.symbol, meta.brandColor, 17),
           text(service.name, { font: { size: "headline", weight: "bold" } }),
         ],
       },
-      text(service.statusText, {
-        color: service.color,
-        font: { size: "subheadline", weight: "semibold" },
-      }),
-      text(`地区：${service.region}`, { color: COLORS.secondary, font: { size: "footnote" } }),
-      text(`延迟：${service.latency} ms`, { color: COLORS.secondary, font: { size: "footnote" } }),
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 5,
+        children: [
+          statusDot(service),
+          text(service.statusText, {
+            color: service.color,
+            font: { size: "subheadline", weight: "semibold" },
+          }),
+        ],
+      },
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 5,
+        children: [
+          image("globe", COLORS.secondary, 11),
+          text(service.region, { color: COLORS.secondary, font: { size: "footnote" } }),
+          image("bolt.horizontal", latencyColor(service.latency), 11),
+          text(`${service.latency} ms`, {
+            color: latencyColor(service.latency),
+            font: { size: "footnote", weight: "medium" },
+          }),
+        ],
+      },
       text(service.detail, { color: COLORS.secondary, font: { size: "caption2" } }),
     ],
   };
@@ -445,7 +577,8 @@ function footer(policy, checkedAt) {
     alignItems: "center",
     gap: 5,
     children: [
-      text(`策略：${policy || "现有分流"}`, {
+      image("arrow.triangle.branch", COLORS.secondary, 10),
+      text(policy || "现有分流", {
         color: COLORS.secondary,
         font: { size: "caption2" },
       }),
@@ -470,16 +603,17 @@ function renderLarge(services, refreshAfter, policy, checkedAt, extraLarge = fal
           type: "stack",
           direction: "row",
           alignItems: "start",
-          gap: 18,
+          gap: 10,
           flex: 1,
           children: services.map(serviceDetail),
         },
       ]
     : services.map(serviceDetail);
-  return widgetBase(refreshAfter, [header(), { type: "spacer", length: 4 }, ...details, { type: "spacer" }, footer(policy, checkedAt)], {
-    padding: 16,
-    gap: 12,
-  });
+  return widgetBase(
+    refreshAfter,
+    [header(checkedAt), { type: "spacer", length: 2 }, ...details, { type: "spacer" }, footer(policy, checkedAt)],
+    { padding: 14, gap: 10 },
+  );
 }
 
 export default async function (ctx) {
@@ -515,13 +649,13 @@ export default async function (ctx) {
     case "accessoryRectangular":
       return renderRectangular(services, refreshAfter);
     case "systemSmall":
-      return renderSmall(services, refreshAfter);
+      return renderSmall(services, refreshAfter, checkedAt);
     case "systemLarge":
       return renderLarge(services, refreshAfter, policy, checkedAt, false);
     case "systemExtraLarge":
       return renderLarge(services, refreshAfter, policy, checkedAt, true);
     case "systemMedium":
     default:
-      return renderMedium(services, refreshAfter);
+      return renderMedium(services, refreshAfter, checkedAt);
   }
 }
