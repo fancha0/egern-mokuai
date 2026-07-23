@@ -349,8 +349,7 @@ export default async function(ctx) {
     return ItemRow(name, data.status, data.col, icon, data.col);
   }
 
-  const now = new Date();
-  const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const checkedAt = new Date().toISOString();
   const isLarge = widgetFamily === "systemLarge";
   const WIDGET_PADDING = isLarge ? [10, 12] : [8, 10];
   const COL_GAP = 12;
@@ -364,6 +363,7 @@ export default async function(ctx) {
       {
         type: "stack", direction: "row", alignItems: "center", gap: 6,
         children: [
+          { type: "image", src: "sf-symbol:location.magnifyingglass", color: C_ICON, width: 14, height: 14 },
           { type: "text", text: "数据中心 (DCH)", font: { size: 13, weight: "heavy" }, textColor: C_TITLE },
           {
             type: "stack", direction: "row", alignItems: "center", gap: 2,
@@ -376,18 +376,12 @@ export default async function(ctx) {
           {
             type: "stack", direction: "row", alignItems: "center", gap: 2,
             children: [
-              { type: "image", src: "sf-symbol:exclamationmark.circle.fill", color: C_ORANGE, width: 12, height: 12 },
+              { type: "image", src: "sf-symbol:arrow.triangle.swap", color: C_ORANGE, width: 12, height: 12 },
               { type: "text", text: policy || "默认节点", font: { size: 11, weight: "bold" }, textColor: C_ORANGE, maxLines: 1 }
             ]
           },
           { type: "spacer" },
-          {
-            type: "stack", direction: "row", alignItems: "center", gap: 2,
-            children: [
-              { type: "image", src: "sf-symbol:arrow.clockwise", color: C_SUB, width: 11, height: 11 },
-              { type: "text", text: timeStr, font: { size: 11 }, textColor: C_SUB }
-            ]
-          }
+          { type: "date", date: checkedAt, format: "relative", font: { size: "caption2" }, textColor: C_SUB, maxLines: 1, minScale: 0.65 }
         ]
       },
       {
