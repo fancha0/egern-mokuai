@@ -14,7 +14,7 @@ const COLORS = {
 };
 
 const CHATGPT_URL = "https://chatgpt.com/";
-const GEMINI_URL = "https://gemini.google.com/app";
+const GEMINI_URL = "https://gemini.google.com/";
 
 function parseChoice(value, allowed, fallback) {
   const parsed = Number.parseInt(value || "", 10);
@@ -221,6 +221,20 @@ function geminiIsRegionRestricted(response) {
   return markers.some((marker) => location.includes(marker) || body.includes(marker));
 }
 
+const GEMINI_ISO3_TO_ISO2 = {
+  USA: "US", SGP: "SG", JPN: "JP", HKG: "HK", TWN: "TW", GBR: "GB", CAN: "CA",
+  AUS: "AU", DEU: "DE", FRA: "FR", KOR: "KR", NLD: "NL", IND: "IN", BRA: "BR",
+  MYS: "MY", THA: "TH", IDN: "ID", PHL: "PH", VNM: "VN", ITA: "IT", ESP: "ES",
+};
+
+function geminiUnlockRegion(response) {
+  const body = response.body || "";
+  if (!body.includes("45631641,null,true")) return null;
+  const match = body.match(/,2,1,200,"([A-Z]{3})"/);
+  if (!match) return "";
+  return GEMINI_ISO3_TO_ISO2[match[1]] || match[1];
+}
+
 function classifyGemini(response, region) {
   if (!response.ok) {
     return result(
@@ -240,7 +254,11 @@ function classifyGemini(response, region) {
     return result("Gemini", "restricted", "地区受限", region, response.latency, `HTTP ${status}`, GEMINI_URL);
   }
   if (status >= 200 && status < 300) {
-    return result("Gemini", "success", "已解锁", region, response.latency, `HTTP ${status}`, GEMINI_URL);
+    const unlocked = geminiUnlockRegion(response);
+    if (unlocked !== null) {
+      return result("Gemini", "success", "已解锁", unlocked || region, response.latency, `HTTP ${status}`, GEMINI_URL);
+    }
+    return result("Gemini", "restricted", "未解锁", region, response.latency, "页面无解锁标识", GEMINI_URL);
   }
   if (
     status >= 300 &&
@@ -629,11 +647,12 @@ export default async function (ctx) {
     headers: { Accept: "text/plain,*/*;q=0.8" },
   });
   const serviceOptions = makeRequestOptions(policy, requestTimeout, { redirect: "manual" });
+  const geminiOptions = makeRequestOptions(policy, requestTimeout);
 
   const [trace, openAIProbe, geminiResponse] = await Promise.all([
     get(ctx, "https://chatgpt.com/cdn-cgi/trace", traceOptions, true),
     get(ctx, "https://api.openai.com/v1/models", serviceOptions, true),
-    get(ctx, GEMINI_URL, serviceOptions, true),
+    get(ctx, GEMINI_URL, geminiOptions, true),
   ]);
 
   const exitRegion = parseTraceRegion(trace);
