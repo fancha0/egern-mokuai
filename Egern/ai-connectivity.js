@@ -256,7 +256,8 @@ function classifyGemini(response, region) {
   if (status >= 200 && status < 300) {
     const unlocked = geminiUnlockRegion(response);
     if (unlocked !== null) {
-      return result("Gemini", "success", "已解锁", unlocked || region, response.latency, `HTTP ${status}`, GEMINI_URL);
+      const displayRegion = region && region !== "--" ? region : unlocked || "--";
+      return result("Gemini", "success", "已解锁", displayRegion, response.latency, `HTTP ${status}`, GEMINI_URL);
     }
     return result("Gemini", "restricted", "未解锁", region, response.latency, "页面无解锁标识", GEMINI_URL);
   }
