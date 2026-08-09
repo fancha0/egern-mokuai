@@ -1,5 +1,5 @@
-name: "AI 服务连通性检测"
-description: "检测 ChatGPT 与 Gemini 的可用性、出口地区和响应延迟"
+name: "AI 服务连通性检测 Pro"
+description: "检测 ChatGPT、Gemini、Claude、Copilot 与 Perplexity 的可用性、出口地区、延迟及受限原因"
 author: "fancha0"
 homepage: "https://github.com/fancha0/egern-mokuai"
 icon: "network"
@@ -9,6 +9,18 @@ env_schema:
     name: "检测策略（可选）"
     description: "填写策略组或节点名称；留空时遵循现有分流规则"
     default_value: ""
+  DETECTION_MODE:
+    name: "检测模式"
+    description: "快速：仅主页；标准：主页＋关键验证；严格：读取更多特征以降低误判"
+    default_value: "standard"
+    options:
+      - "fast"
+      - "standard"
+      - "strict"
+  SERVICES:
+    name: "检测服务"
+    description: "用英文逗号分隔：chatgpt,gemini,claude,copilot,perplexity；填写 all 检测全部"
+    default_value: "all"
   REFRESH_INTERVAL:
     name: "刷新间隔"
     description: "小组件自动重新检测的间隔，单位为秒"
@@ -20,20 +32,27 @@ env_schema:
       - "3600"
   REQUEST_TIMEOUT:
     name: "请求超时"
-    description: "单个检测请求的超时时间，单位为毫秒"
+    description: "单个检测请求超时时间（毫秒）"
     default_value: "8000"
     options:
       - "5000"
       - "8000"
       - "12000"
+  SHOW_DETAIL:
+    name: "显示详细状态"
+    description: "在中、大尺寸组件显示 HTTP 状态或失败原因"
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
 
 scriptings:
   - generic:
       name: "ai-connectivity-widget"
       script_url: "https://raw.githubusercontent.com/fancha0/egern-mokuai/main/Egern/ai-connectivity.js"
       update_interval: 86400
-      timeout: 20
+      timeout: 30
 
 widgets:
-  - name: "AI 服务检测"
+  - name: "AI 服务检测 Pro"
     script_name: "ai-connectivity-widget"
