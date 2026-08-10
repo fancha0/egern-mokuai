@@ -23,13 +23,13 @@ function stateView(s){
 }
 function serviceRow(s){const v=stateView(s);return {type:'stack',direction:'row',alignItems:'center',gap:5,children:[icon(v.icon,v.color),tx(s.name,{font:{size:10,weight:'medium'}}),{type:'spacer'},tx(v.label,{color:v.color,font:{size:10,weight:'bold'}})]};}
 function latencyRow(s){const v=stateView(s), d=s.latency>0?`${s.latency} ms`:'--';return {type:'stack',direction:'row',alignItems:'center',gap:5,children:[icon('bolt.horizontal',v.color),tx(s.name,{color:C.secondary,font:{size:10}}),{type:'spacer'},tx(d,{color:s.latency<400?C.success:s.latency<900?C.warning:C.failure,font:{size:10,weight:'bold'}})]};}
-function compact(ss,refresh){const n=ss.filter(x=>x.available).length,col=n===ss.length?C.success:n?C.warning:C.failure;return {type:'widget',refreshAfter:refresh,padding:0,backgroundColor:C.background,children:[tx(`● AI 服务 ${n}/${ss.length} 可用`,{color:col,font:{size:'caption1',weight:'semibold'}})]};}
-function notice(refresh,msg){return {type:'widget',refreshAfter:refresh,padding:16,backgroundColor:{light:'#FFFFFF',dark:'#1C1C1E'},children:[tx(msg,{font:{size:'callout'},align:'center'})]};}
+function compact(ss,refresh){const n=ss.filter(x=>x.available).length,col=n===ss.length?C.success:n?C.warning:C.failure;return {type:'widget',refreshAfter:refresh,padding:0,children:[tx(`● AI 服务 ${n}/${ss.length} 可用`,{color:col,font:{size:'caption1',weight:'semibold'}})]};}
+function notice(refresh,msg){return {type:'widget',refreshAfter:refresh,padding:16,children:[tx(msg,{font:{size:'callout'},align:'center'})]};}
 function dashboard(ss,refresh,policy,at){
  const left=ss.slice(0,Math.ceil(ss.length/2)), right=ss.slice(Math.ceil(ss.length/2));
  const count=ss.filter(x=>x.available).length, overall=count===ss.length?C.success:count?C.warning:C.failure;
  const title=count===ss.length?'全部可用':`${count}/${ss.length} 可用`;
- return {type:'widget',refreshAfter:refresh,padding:[8,10],gap:5,backgroundColor:{light:'#FFFFFF',dark:'#1C1C1E'},children:[
+ return {type:'widget',refreshAfter:refresh,padding:[8,10],gap:5,children:[
   {type:'stack',direction:'row',alignItems:'center',gap:5,children:[
    tx('AI 服务连通性',{color:{light:'#1A1A1A',dark:'#FFD700'},font:{size:13,weight:'heavy'}}),
    icon(count===ss.length?'checkmark.shield.fill':'exclamationmark.shield.fill',overall,12),tx(title,{color:overall,font:{size:11,weight:'bold'}}),
