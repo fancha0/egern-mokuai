@@ -1,0 +1,37 @@
+name: "流量统计"
+description: "统计 Egern 代理的 HTTP/HTTPS 流量用量，按今日/本周/本月/总计分别展示"
+author: "fancha0"
+homepage: "https://github.com/fancha0/egern-mokuai"
+icon: "chart.bar"
+
+env_schema:
+  REFRESH_INTERVAL:
+    name: "刷新间隔"
+    description: "小组件自动刷新间隔，单位为秒"
+    default_value: "900"
+    options:
+      - "300"
+      - "900"
+      - "1800"
+      - "3600"
+
+scriptings:
+  # 拦截所有 HTTP 响应，累计流量
+  - http_response:
+      name: "traffic-counter"
+      match: "^https?://.*"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-mokuai/main/Egern/traffic-counter.js"
+      update_interval: 86400
+      max_size: 131072
+      timeout: 10
+      body_required: false
+  # 小组件展示脚本
+  - generic:
+      name: "traffic-widget"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-mokuai/main/Egern/traffic-widget.js"
+      update_interval: 86400
+      timeout: 20
+
+widgets:
+  - name: "流量统计"
+    script_name: "traffic-widget"
