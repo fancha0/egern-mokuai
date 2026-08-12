@@ -41,16 +41,20 @@ async function checkChatGPT(ctx,policy,timeout,region){
 
 // Gemini：POST batchexecute 接口取 countryCode
 async function checkGemini(ctx,policy,timeout,region){
- const body='f.req=%5B%5B%22K4WWud%22%2C%22%5B%5B0%5D%2C%5B%5C%22en-US%5C%22%5D%5D%22%2Cnull%2C%22generic%22%5D%5D';
- const o=opts(policy,timeout,{redirect:'follow','Content-Type':'application/x-www-form-urlencoded','Accept-Language':'en-US'});
+ // 与 ip-info 模块一致：使用 Gemini 的 batchexecute 探测接口。
+ // f.req 保持原始表单格式，避免二次编码造成 HTTP 400 / 检测异常。
+ const body='f.req=[["K4WWud","[[\\"en-US\\"]]",null,"generic"]]';
+ const o=opts(policy,timeout,{'Content-Type':'application/x-www-form-urlencoded','Accept-Language':'en-US'});
  const r=await post(ctx,'https://gemini.google.com/_/BardChatUi/data/batchexecute',body,o);
  if(!r.ok||!r.body)return make('gemini','failure','不可用',region,r.latency,failDetail(r));
  const m=r.body.match(/"countryCode"\s*:\s*"?([A-Z]{2})"?/i);
  if(m&&m[1])return make('gemini','success','已解锁',m[1].toUpperCase(),r.latency,`地区 ${m[1].toUpperCase()}`);
- const lt=r.body.toLowerCase();
- if(lt.includes('not available in your country')||lt.includes('unsupported'))return make('gemini','restricted','地区受限',region,r.latency,'地区不支持');
- if(r.status>=200&&r.status<300)return make('gemini','success','已解锁',region,r.latency,`HTTP ${r.status}`);
- return make('gemini','warning','可连接',region,r.latency,`HTTP ${r.status}`);
+ const text=r.body.toLowerCase();
+ if(text.includes('not available in your country')||text.includes('unsupported_country')||text.includes('not supported in your country'))return make('gemini','restricted','地区受限',region,r.latency,'地区不支持');
+ // 已成功连接但接口暂未返回地区字段时，仍按可用处理；避免错误显示“异常”。
+ if(r.status>=200&&r.status<400)return make('gemini','success','已解锁',region,r.latency,'接口可达，未返回地区代码');
+ if(r.status===429)return make('gemini','warning','限流',region,r.latency,'HTTP 429');
+ return make('gemini','unknown','检测异常',region,r.latency,`HTTP ${r.status}`);
 }
 
 // Claude：访问 /login 页面
