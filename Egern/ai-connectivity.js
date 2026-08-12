@@ -9,7 +9,7 @@ const SERVICES={
 const UA='Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 
 function int(v,a,d){v=parseInt(v||'',10);return a.includes(v)?v:d}
-function opts(policy,timeout,extra={}){const o={timeout,credentials:'omit',headers:{'User-Agent':UA,'Accept':'text/html,application/json;q=0.9,*/*;q=0.8','Accept-Language':'zh-CN,zh;q=0.9,en;q=0.6',...extra}};if(policy)o.policy=policy;return Object.assign(o,{redirect:extra.redirect||'manual'})}
+function opts(policy,timeout,extra={}){const {redirect='manual',...headers}=extra;const o={timeout,credentials:'omit',redirect,headers:{'User-Agent':UA,'Accept':'text/html,application/json;q=0.9,*/*;q=0.8','Accept-Language':'zh-CN,zh;q=0.9,en;q=0.6',...headers}};if(policy)o.policy=policy;return o}
 async function get(ctx,url,o,readBody=true){const t=Date.now();try{const r=await ctx.http.get(url,o);let b='';if(readBody)try{b=(await r.text()).slice(0,200000)}catch{}return{ok:true,status:r.status,headers:r.headers,body:b,latency:Date.now()-t}}catch(e){return{ok:false,status:0,headers:null,body:'',latency:Date.now()-t,error:String(e?.message||e)}}}
 async function post(ctx,url,body,o){const t=Date.now();try{const opt={...o,body};const r=await ctx.http.post(url,opt);let b='';try{b=(await r.text()).slice(0,200000)}catch{}return{ok:true,status:r.status,headers:r.headers,body:b,latency:Date.now()-t}}catch(e){return{ok:false,status:0,headers:null,body:'',latency:Date.now()-t,error:String(e?.message||e)}}}
 function traceRegion(r){if(!r.ok||r.status!==200)return'--';const m=r.body.match(/(?:^|\n)loc=([A-Z]{2})(?:\n|$)/i);return m?m[1].toUpperCase():'--'}
