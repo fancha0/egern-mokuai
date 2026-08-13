@@ -48,14 +48,15 @@ async function checkGemini(ctx,policy,timeout,region){
  const r=await post(ctx,'https://gemini.google.com/_/BardChatUi/data/batchexecute',body,o);
  if(!r.ok||!r.body)return make('gemini','failure','不可用',region,r.latency,failDetail(r));
  const m=r.body.match(/(?:\\"|"|\\\\x22)countryCode(?:\\"|"|\\\\x22)\s*[:\\,]\s*(?:\\"|"|\\\\x22)?([A-Z]{2})(?:\\"|"|\\\\x22)?/i) || r.body.match(/,2,1,200,(?:\\"|")([A-Z]{3})(?:\\"|")/);
- const iso3={USA:'US',SGP:'SG',JPN:'JP',HKG:'HK',TWN:'TW',GBR:'GB',CAN:'CA',AUS:'AU',DEU:'DE',FRA:'FR',KOR:'KR',NLD:'NL',ITA:'IT',ESP:'ES'};
- if(m&&m[1]){const code=m[1].toUpperCase();return make('gemini','success','已解锁',iso3[code]||code,r.latency,`地区 ${iso3[code]||code}`);}
+ const iso3={AFG:'AF',ALB:'AL',DZA:'DZ',AND:'AD',AGO:'AO',ARG:'AR',ARM:'AM',AUS:'AU',AUT:'AT',AZE:'AZ',BHS:'BS',BHR:'BH',BGD:'BD',BRB:'BB',BLR:'BY',BEL:'BE',BLZ:'BZ',BEN:'BJ',BTN:'BT',BOL:'BO',BIH:'BA',BWA:'BW',BRA:'BR',BRN:'BN',BGR:'BG',BFA:'BF',BDI:'BI',KHM:'KH',CMR:'CM',CAN:'CA',CPV:'CV',CAF:'CF',TCD:'TD',CHL:'CL',CHN:'CN',COL:'CO',COM:'KM',COG:'CG',COD:'CD',CRI:'CR',CIV:'CI',HRV:'HR',CUB:'CU',CYP:'CY',CZE:'CZ',DNK:'DK',DJI:'DJ',DMA:'DM',DOM:'DO',ECU:'EC',EGY:'EG',SLV:'SV',EST:'EE',SWZ:'SZ',ETH:'ET',FJI:'FJ',FIN:'FI',FRA:'FR',GAB:'GA',GMB:'GM',GEO:'GE',DEU:'DE',GHA:'GH',GRC:'GR',GRD:'GD',GTM:'GT',GIN:'GN',GUY:'GY',HTI:'HT',HND:'HN',HKG:'HK',HUN:'HU',ISL:'IS',IND:'IN',IDN:'ID',IRN:'IR',IRQ:'IQ',IRL:'IE',ISR:'IL',ITA:'IT',JAM:'JM',JPN:'JP',JOR:'JO',KAZ:'KZ',KEN:'KE',KOR:'KR',KWT:'KW',KGZ:'KG',LAO:'LA',LVA:'LV',LBN:'LB',LBR:'LR',LBY:'LY',LTU:'LT',LUX:'LU',MAC:'MO',MDG:'MG',MYS:'MY',MDV:'MV',MLI:'ML',MLT:'MT',MRT:'MR',MUS:'MU',MEX:'MX',MDA:'MD',MNG:'MN',MNE:'ME',MAR:'MA',MOZ:'MZ',MMR:'MM',NAM:'NA',NPL:'NP',NLD:'NL',NZL:'NZ',NIC:'NI',NER:'NE',NGA:'NG',MKD:'MK',NOR:'NO',OMN:'OM',PAK:'PK',PAN:'PA',PRY:'PY',PER:'PE',PHL:'PH',POL:'PL',PRT:'PT',PRI:'PR',QAT:'QA',ROU:'RO',RUS:'RU',RWA:'RW',SAU:'SA',SEN:'SN',SRB:'RS',SGP:'SG',SVK:'SK',SVN:'SI',SOM:'SO',ZAF:'ZA',ESP:'ES',LKA:'LK',SDN:'SD',SUR:'SR',SWE:'SE',CHE:'CH',SYR:'SY',TWN:'TW',TJK:'TJ',TZA:'TZ',THA:'TH',TLS:'TL',TGO:'TG',TTO:'TT',TUN:'TN',TUR:'TR',TKM:'TM',UGA:'UG',UKR:'UA',ARE:'AE',GBR:'GB',USA:'US',URY:'UY',UZB:'UZ',VEN:'VE',VNM:'VN',YEM:'YE',ZMB:'ZM',ZWE:'ZW'};
+ if(m&&m[1]){const code=m[1].toUpperCase();const country=iso3[code]||code;return make('gemini','success','已解锁',country,r.latency,`地区 ${country}`);}
  const text=r.body.toLowerCase();
  if(text.includes('not available in your country')||text.includes('unsupported_country')||text.includes('not supported in your country'))return make('gemini','restricted','地区受限',region,r.latency,'地区不支持');
- // 已成功连接但接口暂未返回地区字段时，仍按可用处理；避免错误显示“异常”。
- if(r.status>=200&&r.status<400)return make('gemini','success','已解锁',region,r.latency,'接口可达，未返回地区代码');
  if(r.status===429)return make('gemini','warning','限流',region,r.latency,'HTTP 429');
- return make('gemini','unknown','检测异常',region,r.latency,`HTTP ${r.status}`);
+ if(r.status<200||r.status>=400)return make('gemini','unknown','检测异常',region,r.latency,`HTTP ${r.status}`);
+ // Gemini 接口能正常响应但未提供地区字段时，保留可用状态；避免把“未知地区”误判为异常。
+ const fallbackRegion=region&&region!=='--'?region:'Unknown';
+ return make('gemini','success','已解锁',fallbackRegion,r.latency,'已解锁（未知地区）');
 }
 
 // Claude：访问 /login 页面
