@@ -43,12 +43,13 @@ async function checkChatGPT(ctx,policy,timeout,region){
 async function checkGemini(ctx,policy,timeout,region){
  // 与 ip-info 模块一致：使用 Gemini 的 batchexecute 探测接口。
  // f.req 保持原始表单格式，避免二次编码造成 HTTP 400 / 检测异常。
- const body='f.req=[["K4WWud","[[\\"en-US\\"]]",null,"generic"]]';
+ const body='f.req=[["K4WWud","[[0],[\\"en-US\\"]]",null,"generic"]]';
  const o=opts(policy,timeout,{'Content-Type':'application/x-www-form-urlencoded','Accept-Language':'en-US'});
  const r=await post(ctx,'https://gemini.google.com/_/BardChatUi/data/batchexecute',body,o);
  if(!r.ok||!r.body)return make('gemini','failure','不可用',region,r.latency,failDetail(r));
- const m=r.body.match(/"countryCode"\s*:\s*"?([A-Z]{2})"?/i);
- if(m&&m[1])return make('gemini','success','已解锁',m[1].toUpperCase(),r.latency,`地区 ${m[1].toUpperCase()}`);
+ const m=r.body.match(/(?:\\"|"|\\\\x22)countryCode(?:\\"|"|\\\\x22)\s*[:\\,]\s*(?:\\"|"|\\\\x22)?([A-Z]{2})(?:\\"|"|\\\\x22)?/i) || r.body.match(/,2,1,200,(?:\\"|")([A-Z]{3})(?:\\"|")/);
+ const iso3={USA:'US',SGP:'SG',JPN:'JP',HKG:'HK',TWN:'TW',GBR:'GB',CAN:'CA',AUS:'AU',DEU:'DE',FRA:'FR',KOR:'KR',NLD:'NL',ITA:'IT',ESP:'ES'};
+ if(m&&m[1]){const code=m[1].toUpperCase();return make('gemini','success','已解锁',iso3[code]||code,r.latency,`地区 ${iso3[code]||code}`);}
  const text=r.body.toLowerCase();
  if(text.includes('not available in your country')||text.includes('unsupported_country')||text.includes('not supported in your country'))return make('gemini','restricted','地区受限',region,r.latency,'地区不支持');
  // 已成功连接但接口暂未返回地区字段时，仍按可用处理；避免错误显示“异常”。
