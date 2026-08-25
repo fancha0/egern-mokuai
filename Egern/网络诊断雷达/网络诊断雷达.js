@@ -110,6 +110,7 @@ export default async function (ctx) {
     "chatgpt",
     "claude",
     "gemini",
+    "copilot",
     "deepseek",
     "grok",
     "perplexity"
@@ -355,6 +356,229 @@ export default async function (ctx) {
         ms: Math.max(1, Date.now() - startedAt)
       };
     }
+  }
+
+  // ---------- 精确 AI 检测（源自 fancha0/egern-mokuai ai-connectivity）----------
+
+  function probeHeader(headers, name) {
+    if (!headers) return "";
+    if (typeof headers.get === "function") return headers.get(name) || "";
+    return headers[name] || headers[name.toLowerCase()] || "";
+  }
+
+  async function probeGet(url, policy, extra) {
+    const startedAt = Date.now();
+    try {
+      const response = await ctx.http.get(
+        url,
+        serviceRequestOptions(policy, extra || {})
+      );
+      let body = "";
+      try {
+        body = (await response.text()).slice(0, 200000);
+      } catch (_) {}
+      return {
+        ok: true,
+        status: response.status,
+        headers: response.headers,
+        body: body,
+        latency: Date.now() - startedAt
+      };
+    } catch (_) {
+      return {
+        ok: false,
+        status: 0,
+        headers: null,
+        body: "",
+        latency: Date.now() - startedAt
+      };
+    }
+  }
+
+  async function probePost(url, body, policy, extra) {
+    const startedAt = Date.now();
+    try {
+      const response = await ctx.http.post(
+        url,
+        serviceRequestOptions(policy, {
+          body: body,
+          ...(extra || {})
+        })
+      );
+      let text = "";
+      try {
+        text = (await response.text()).slice(0, 200000);
+      } catch (_) {}
+      return {
+        ok: true,
+        status: response.status,
+        headers: response.headers,
+        body: text,
+        latency: Date.now() - startedAt
+      };
+    } catch (_) {
+      return {
+        ok: false,
+        status: 0,
+        headers: null,
+        body: "",
+        latency: Date.now() - startedAt
+      };
+    }
+  }
+
+  // ChatGPT：双端探测（网页 + iOS APP 端）
+  async function probeChatGPT(policy) {
+    const [web, ios] = await Promise.all([
+      probeGet("https://chatgpt.com/", policy, { redirect: "manual" }),
+      probeGet("https://ios.chat.openai.com/", policy)
+    ]);
+
+    const webText = (web.body || "").toLowerCase();
+    const webOk = web.ok && web.status >= 200 && web.status < 400;
+    const webBlocked =
+      webText.includes("unsupported_country_region_territory") ||
+      webText.includes("unsupported country");
+    const webCf =
+      webText.includes("cf-mitigated") ||
+      webText.includes("challenge-platform") ||
+      webText.includes("enable javascript and cookies");
+
+    const iosText = (ios.body || "").toLowerCase();
+    const iosBlocked =
+      iosText.includes("blocked_why_headline") ||
+      iosText.includes("unsupported_country_region_territory") ||
+      iosText.includes("unsupported_country");
+    const iosOk = ios.ok && !iosBlocked && ios.status >= 200 && ios.status < 500;
+
+    if (webOk && iosOk) return { ok: true, note: "" };
+    if (iosOk && !webOk) return { ok: true, note: "APP" };
+    if (webBlocked || iosBlocked) return { ok: false, note: "受限" };
+    if (webCf) return { ok: false, note: "验证" };
+    if (webOk || iosOk) return { ok: true, note: "" };
+    return { ok: false, note: "" };
+  }
+
+  // Gemini：batchexecute 接口取 countryCode
+  const GEMINI_ISO3_TO_ISO2 = {
+    USA: "US", SGP: "SG", JPN: "JP", HKG: "HK", TWN: "TW", GBR: "GB",
+    CAN: "CA", AUS: "AU", DEU: "DE", FRA: "FR", KOR: "KR", NLD: "NL",
+    ITA: "IT", ESP: "ES", MYS: "MY", THA: "TH", IDN: "ID", PHL: "PH",
+    VNM: "VN", IND: "IN", BRA: "BR", MEX: "MX", CHE: "CH", AUT: "AT",
+    BEL: "BE", SWE: "SE", NOR: "NO", DNK: "DK", FIN: "FI", POL: "PL",
+    CZE: "CZ", PRT: "PT", GRC: "GR", IRL: "IE", ISL: "IS", NZL: "NZ",
+    ZAF: "ZA", ARE: "AE", SAU: "SA", TUR: "TR", RUS: "RU", UKR: "UA"
+  };
+
+  async function probeGemini(policy) {
+    const body =
+      'f.req=[["K4WWud","[[0],[\\"en-US\\"]]",null,"generic"]]';
+    const response = await probePost(
+      "https://gemini.google.com/_/BardChatUi/data/batchexecute",
+      body,
+      policy,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Accept-Language": "en-US"
+        }
+      }
+    );
+
+    if (!response.ok || !response.body) return { ok: false, note: "", region: "" };
+
+    const matched =
+      response.body.match(
+        /(?:\\"|"|\\\\x22)countryCode(?:\\"|"|\\\\x22)\s*[:\\,]\s*(?:\\"|"|\\\\x22)?([A-Z]{2})(?:\\"|"|\\\\x22)?/i
+      ) ||
+      response.body.match(/,2,1,200,(?:\\"|")([A-Z]{3})(?:\\"|")/);
+
+    if (matched && matched[1]) {
+      const code = matched[1].toUpperCase();
+      const region = GEMINI_ISO3_TO_ISO2[code] || code;
+      return { ok: true, note: "", region: region };
+    }
+
+    const text = response.body.toLowerCase();
+    if (
+      text.includes("not available in your country") ||
+      text.includes("unsupported_country") ||
+      text.includes("not supported in your country")
+    ) {
+      return { ok: false, note: "受限", region: "" };
+    }
+    if (response.status >= 200 && response.status < 400) {
+      return { ok: true, note: "", region: "" };
+    }
+    return { ok: false, note: "", region: "" };
+  }
+
+  // Claude：/login 页检测
+  async function probeClaude(policy) {
+    const response = await probeGet("https://claude.ai/login", policy);
+    if (!response.ok) return { ok: false, note: "" };
+    if (response.status === 403) return { ok: false, note: "受限" };
+    const body = (response.body || "").toLowerCase();
+    if (
+      body.includes("app unavailable") ||
+      body.includes("unsupported_country") ||
+      body.includes("not available in your country")
+    ) {
+      return { ok: false, note: "受限" };
+    }
+    if (response.status >= 200 && response.status < 400) {
+      return { ok: true, note: "" };
+    }
+    return { ok: false, note: "" };
+  }
+
+  // Copilot：主页 + 地区限制识别
+  async function probeCopilot(policy) {
+    const response = await probeGet("https://copilot.microsoft.com/", policy);
+    if (!response.ok) return { ok: false, note: "" };
+    const body = (response.body || "").toLowerCase();
+    if (
+      body.includes("not available in your country") ||
+      body.includes("not available in your region") ||
+      body.includes("unsupported country")
+    ) {
+      return { ok: false, note: "受限" };
+    }
+    if (response.status >= 200 && response.status < 400) {
+      return { ok: true, note: "" };
+    }
+    if (response.status === 429) return { ok: true, note: "限流" };
+    return { ok: false, note: "" };
+  }
+
+  // 通用：主页 + 地区限制识别（DeepSeek / Grok / Perplexity）
+  async function probeGenericAI(url, policy) {
+    const response = await probeGet(url, policy);
+    if (!response.ok) return { ok: false, note: "" };
+    const body = (response.body || "").toLowerCase();
+    if (
+      body.includes("not available in your country") ||
+      body.includes("not available in your region") ||
+      body.includes("unsupported country")
+    ) {
+      return { ok: false, note: "受限" };
+    }
+    if (response.status >= 200 && response.status < 400) {
+      return { ok: true, note: "" };
+    }
+    return { ok: false, note: "" };
+  }
+
+  // AI 精确检测统一入口：返回 ok / note（受限|验证|限流）/ region
+  async function probeAIService(id, policy) {
+    if (id === "chatgpt") return probeChatGPT(policy);
+    if (id === "gemini") return probeGemini(policy);
+    if (id === "claude") return probeClaude(policy);
+    if (id === "copilot") return probeCopilot(policy);
+    if (id === "deepseek") return probeGenericAI("https://chat.deepseek.com/", policy);
+    if (id === "grok") return probeGenericAI("https://grok.com/", policy);
+    if (id === "perplexity") return probeGenericAI("https://www.perplexity.ai/", policy);
+    return { ok: false, note: "", region: "" };
   }
 
   async function getPolicyExit(policy) {
@@ -1029,14 +1253,18 @@ export default async function (ctx) {
 
     const separator = url.includes("?") ? "&" : "?";
 
-    const [
-      result,
-      serviceExit
-    ] = await Promise.all([
-      getServiceStatus(
-        url + separator + "_=" + Date.now(),
-        servicePolicy
-      ),
+    // AI 服务使用精确检测（来自 fancha0/egern-mokuai ai-connectivity 模块）
+    const isAI = AI_SERVICE_IDS.indexOf(id) !== -1;
+
+    const [result, serviceExit] = await Promise.all([
+      isAI
+        ? probeAIService(id, servicePolicy)
+        : getServiceStatus(
+            url + separator + "_=" + Date.now(),
+            servicePolicy
+          ).then(function (status) {
+            return { ok: status.ok, note: "", region: "" };
+          }),
       serviceExitPromise
     ]);
 
@@ -1046,8 +1274,10 @@ export default async function (ctx) {
       kind: kind,
       color: color,
       ok: result.ok,
+      note: result.note || "",
+      region: result.region || "",
       policy: servicePolicy || "",
-      countryCode: serviceExit.countryCode || "",
+      countryCode: result.region || serviceExit.countryCode || "",
       country: serviceExit.country || "",
       exit: serviceExit
     };
@@ -1091,6 +1321,7 @@ export default async function (ctx) {
       testService("chatgpt", "ChatGPT", "chatgpt", C.chatgpt, "https://chatgpt.com/", aiPolicyMap.chatgpt),
       testService("claude", "Claude", "claude", C.claude, "https://claude.ai/", aiPolicyMap.claude),
       testService("gemini", "Gemini", "gemini", C.gemini, "https://gemini.google.com/", aiPolicyMap.gemini),
+      testService("copilot", "Copilot", "copilot", C.blue, "https://copilot.microsoft.com/", aiPolicyMap.copilot),
       testService("deepseek", "DeepSeek", "deepseek", C.deepseek, "https://chat.deepseek.com/", aiPolicyMap.deepseek),
       testService("grok", "Grok", "grok", C.grok, "https://grok.com/", aiPolicyMap.grok),
       testService("perplexity", "Perplexity", "perplexity", C.perplexity, "https://www.perplexity.ai/", aiPolicyMap.perplexity)
@@ -1880,6 +2111,15 @@ export default async function (ctx) {
       );
     }
 
+    if (item.kind === "copilot") {
+      return row(
+        [
+          image("sparkle", item.color, 15, 15)
+        ],
+        base
+      );
+    }
+
     const mark =
       item.kind === "netflix"
         ? "N"
@@ -1917,6 +2157,10 @@ export default async function (ctx) {
       ? flag(serviceCountryCode) + " " + serviceCountryCode
       : "NET";
 
+    const statusLabel = item.ok
+      ? (item.note ? item.note : "OK")
+      : (item.note ? item.note : "失败");
+
     return row(
       [
         serviceLogoLarge(item),
@@ -1941,10 +2185,10 @@ export default async function (ctx) {
                 ),
 
                 text(
-                  item.ok ? "OK" : "失败",
+                  statusLabel,
                   5.6,
                   "semibold",
-                  statusColor,
+                  item.ok ? statusColor : C.red,
                   {
                     maxLines: 1
                   }
@@ -1973,47 +2217,25 @@ export default async function (ctx) {
   }
 
   function serviceGrid(items) {
-    return col(
-      [
-        row(
-          [
-            compactServiceTile(items[0]),
-            compactServiceTile(items[1])
-          ],
-          {
-            height: 31,
-            gap: 5
-          }
-        ),
-
-        row(
-          [
-            compactServiceTile(items[2]),
-            compactServiceTile(items[3])
-          ],
-          {
-            height: 31,
-            gap: 5
-          }
-        ),
-
-        row(
-          [
-            compactServiceTile(items[4]),
-            compactServiceTile(items[5])
-          ],
-          {
-            height: 31,
-            gap: 5
-          }
-        )
-      ],
-      {
-        flex: 1,
-        height: 101,
-        gap: 4
+    const rows = [];
+    for (let i = 0; i < items.length; i += 2) {
+      const tiles = [compactServiceTile(items[i])];
+      if (i + 1 < items.length) {
+        tiles.push(compactServiceTile(items[i + 1]));
       }
-    );
+      rows.push(
+        row(tiles, {
+          height: 31,
+          gap: 5
+        })
+      );
+    }
+
+    return col(rows, {
+      flex: 1,
+      height: 101 + (items.length > 6 ? 0 : 0),
+      gap: 4
+    });
   }
 
   function serviceCard(title, symbol, items, tone) {
