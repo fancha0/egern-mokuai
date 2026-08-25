@@ -110,8 +110,6 @@ export default async function (ctx) {
     "chatgpt",
     "claude",
     "gemini",
-    "copilot",
-    "deepseek",
     "grok",
     "perplexity"
   ];
@@ -532,26 +530,7 @@ export default async function (ctx) {
     return { ok: false, note: "" };
   }
 
-  // Copilot：主页 + 地区限制识别
-  async function probeCopilot(policy) {
-    const response = await probeGet("https://copilot.microsoft.com/", policy);
-    if (!response.ok) return { ok: false, note: "" };
-    const body = (response.body || "").toLowerCase();
-    if (
-      body.includes("not available in your country") ||
-      body.includes("not available in your region") ||
-      body.includes("unsupported country")
-    ) {
-      return { ok: false, note: "受限" };
-    }
-    if (response.status >= 200 && response.status < 400) {
-      return { ok: true, note: "" };
-    }
-    if (response.status === 429) return { ok: true, note: "限流" };
-    return { ok: false, note: "" };
-  }
-
-  // 通用：主页 + 地区限制识别（DeepSeek / Grok / Perplexity）
+  // 通用：主页 + 地区限制识别（Grok / Perplexity）
   async function probeGenericAI(url, policy) {
     const response = await probeGet(url, policy);
     if (!response.ok) return { ok: false, note: "" };
@@ -574,8 +553,6 @@ export default async function (ctx) {
     if (id === "chatgpt") return probeChatGPT(policy);
     if (id === "gemini") return probeGemini(policy);
     if (id === "claude") return probeClaude(policy);
-    if (id === "copilot") return probeCopilot(policy);
-    if (id === "deepseek") return probeGenericAI("https://chat.deepseek.com/", policy);
     if (id === "grok") return probeGenericAI("https://grok.com/", policy);
     if (id === "perplexity") return probeGenericAI("https://www.perplexity.ai/", policy);
     return { ok: false, note: "", region: "" };
@@ -1321,8 +1298,6 @@ export default async function (ctx) {
       testService("chatgpt", "ChatGPT", "chatgpt", C.chatgpt, "https://chatgpt.com/", aiPolicyMap.chatgpt),
       testService("claude", "Claude", "claude", C.claude, "https://claude.ai/", aiPolicyMap.claude),
       testService("gemini", "Gemini", "gemini", C.gemini, "https://gemini.google.com/", aiPolicyMap.gemini),
-      testService("copilot", "Copilot", "copilot", C.blue, "https://copilot.microsoft.com/", aiPolicyMap.copilot),
-      testService("deepseek", "DeepSeek", "deepseek", C.deepseek, "https://chat.deepseek.com/", aiPolicyMap.deepseek),
       testService("grok", "Grok", "grok", C.grok, "https://grok.com/", aiPolicyMap.grok),
       testService("perplexity", "Perplexity", "perplexity", C.perplexity, "https://www.perplexity.ai/", aiPolicyMap.perplexity)
     ])
@@ -2111,23 +2086,12 @@ export default async function (ctx) {
       );
     }
 
-    if (item.kind === "copilot") {
-      return row(
-        [
-          image("sparkle", item.color, 15, 15)
-        ],
-        base
-      );
-    }
-
     const mark =
       item.kind === "netflix"
         ? "N"
         : item.kind === "disney"
           ? "D+"
-          : item.kind === "deepseek"
-            ? "D"
-            : "AI";
+          : "AI";
 
     const fontSize =
       item.kind === "claude"
