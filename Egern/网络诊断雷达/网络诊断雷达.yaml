@@ -1,0 +1,53 @@
+# ==========================================
+# 📌 模块名称: 网络诊断雷达
+# ✨ 主要功能: 出口/延迟/UDP-QUIC/流媒体/AI 全面网络诊断
+# 🔗 上游脚本: https://github.com/lylywayr/NetWork-Module
+# ⏱️ 2026.08.25
+# ==========================================
+# 环境变量：
+# - POLICY：最高优先级。指定后，出口、延迟、UDP/QUIC、流媒体、AI 全部统一走 POLICY
+# - LMT：流媒体检测策略组。POLICY 为空时生效
+# - AI：AI 检测策略组。POLICY 为空时生效
+# - YS=1：显示 IP 的地方启用隐私打码，例如 123.123.123.123 -> 123.123.*.*
+# - XY：手动指定协议，例如 VLESS / Trojan / HY2 / AnyTLS
+
+name: "网络诊断雷达"
+description: "本地/出口网络诊断、纯净度评分、流媒体与 AI 解锁检测（超大号组件专用）"
+author: "lylywayr"
+homepage: "https://github.com/lylywayr/NetWork-Module"
+
+env_schema:
+  POLICY:
+    name: "统一策略（可选）"
+    description: "指定后所有检测统一走该策略组或节点；留空时按类别自动匹配"
+    default_value: ""
+  LMT:
+    name: "流媒体策略（可选）"
+    description: "流媒体检测专用策略组；POLICY 为空时生效"
+    default_value: ""
+  AI:
+    name: "AI 检测策略（可选）"
+    description: "AI 检测专用策略组；POLICY 为空时生效"
+    default_value: ""
+  YS:
+    name: "IP 隐私打码"
+    description: "开启后 IP 显示为 123.123.*.* 形式，截图分享更安全"
+    default_value: "0"
+    options:
+      - "0"
+      - "1"
+  XY:
+    name: "手动指定协议（可选）"
+    description: "例如 VLESS / Trojan / HY2 / AnyTLS；留空自动识别"
+    default_value: ""
+
+scriptings:
+  - generic:
+      name: "网络诊断雷达"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-mokuai/main/Egern/网络诊断雷达/网络诊断雷达.js"
+      update_interval: 43200
+      timeout: 60
+
+widgets:
+  - name: "网络诊断雷达"
+    script_name: "网络诊断雷达"
