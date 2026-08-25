@@ -110,8 +110,7 @@ export default async function (ctx) {
     "chatgpt",
     "claude",
     "gemini",
-    "grok",
-    "perplexity"
+    "grok"
   ];
 
   const device = ctx.device || {};
@@ -530,7 +529,7 @@ export default async function (ctx) {
     return { ok: false, note: "" };
   }
 
-  // 通用：主页 + 地区限制识别（Grok / Perplexity）
+  // 通用：主页 + 地区限制识别（Grok）
   async function probeGenericAI(url, policy) {
     const response = await probeGet(url, policy);
     if (!response.ok) return { ok: false, note: "" };
@@ -554,7 +553,6 @@ export default async function (ctx) {
     if (id === "gemini") return probeGemini(policy);
     if (id === "claude") return probeClaude(policy);
     if (id === "grok") return probeGenericAI("https://grok.com/", policy);
-    if (id === "perplexity") return probeGenericAI("https://www.perplexity.ai/", policy);
     return { ok: false, note: "", region: "" };
   }
 
@@ -1298,8 +1296,7 @@ export default async function (ctx) {
       testService("chatgpt", "ChatGPT", "chatgpt", C.chatgpt, "https://chatgpt.com/", aiPolicyMap.chatgpt),
       testService("claude", "Claude", "claude", C.claude, "https://claude.ai/", aiPolicyMap.claude),
       testService("gemini", "Gemini", "gemini", C.gemini, "https://gemini.google.com/", aiPolicyMap.gemini),
-      testService("grok", "Grok", "grok", C.grok, "https://grok.com/", aiPolicyMap.grok),
-      testService("perplexity", "Perplexity", "perplexity", C.perplexity, "https://www.perplexity.ai/", aiPolicyMap.perplexity)
+      testService("grok", "Grok", "grok", C.grok, "https://grok.com/", aiPolicyMap.grok)
     ])
   ]);
 
@@ -2072,15 +2069,6 @@ export default async function (ctx) {
       return row(
         [
           image("xmark", item.color, 14, 14)
-        ],
-        base
-      );
-    }
-
-    if (item.kind === "perplexity") {
-      return row(
-        [
-          image("magnifyingglass", item.color, 14, 14)
         ],
         base
       );
