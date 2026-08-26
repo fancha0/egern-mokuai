@@ -2050,7 +2050,7 @@ export default async function (ctx) {
     if (item.kind === "chatgpt") {
       return row(
         [
-          image("circle.hexagongrid", item.color, 15, 15)
+          image("bubble.left.and.bubble.right.fill", item.color, 15, 15)
         ],
         base
       );
