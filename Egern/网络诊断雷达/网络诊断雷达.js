@@ -2050,7 +2050,12 @@ export default async function (ctx) {
     if (item.kind === "chatgpt") {
       return row(
         [
-          image("bubble.left.and.bubble.right.fill", item.color, 15, 15)
+          rawImage(
+            "https://raw.githubusercontent.com/fancha0/my-icons/main/ai/ai11.png",
+            15,
+            15,
+            { cornerRadius: 4 }
+          )
         ],
         base
       );
