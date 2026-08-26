@@ -2352,7 +2352,6 @@ export default async function (ctx) {
     type: "widget",
     padding: S(8),
     gap: 0,
-    backgroundColor: C.root,
     refreshAfter: new Date(
       Date.now() + REFRESH_MINUTES * 60 * 1000
     ).toISOString(),
@@ -2369,50 +2368,65 @@ function palette() {
     dark: dark
   });
 
+  // 液态玻璃（iOS 26 风格）：8 位 HEX 带透明度（#RRGGBBAA）
+  // 组件背景透明 → 系统磨砂玻璃透过；卡片半透明 + 细描边
+  const glass = (hex, alpha) => {
+    const a = Math.round(clamp(alpha, 0, 1) * 255);
+    return hex + a.toString(16).padStart(2, "0").toUpperCase();
+  };
+  const glassAdaptive = (hexL, aL, hexD, aD) => ({
+    light: glass(hexL, aL),
+    dark: glass(hexD, aD)
+  });
+
   return {
-    root: adaptive("#E3EAF5", "#07101F"),
+    // 根背景：全透明，壁纸与系统磨砂直接透出
+    root: adaptive("#E3EAF500", "#07101F00"),
 
-    dashboard: adaptive("#E3EAF5", "#07101F"),
-    dashboardBorder: adaptive("#E3EAF5", "#07101F"),
+    dashboard: adaptive("#E3EAF500", "#07101F00"),
+    dashboardBorder: adaptive("#E3EAF500", "#07101F00"),
 
-    card: adaptive("#F7FAFF", "#101A2D"),
-    cardTop: adaptive("#FFFFFF", "#142039"),
-    cardBottom: adaptive("#F0F5FF", "#0D1728"),
+    // 卡片：半透明玻璃质感
+    card: glassAdaptive("#FFFFFF", 0.55, "#101A2D", 0.55),
+    cardTop: glassAdaptive("#FFFFFF", 0.72, "#142039", 0.55),
+    cardBottom: glassAdaptive("#F0F5FF", 0.45, "#0D1728", 0.45),
 
-    proxyTop: adaptive("#FFFFFF", "#142039"),
-    proxyBottom: adaptive("#F0F5FF", "#0D1728"),
+    proxyTop: glassAdaptive("#FFFFFF", 0.72, "#142039", 0.55),
+    proxyBottom: glassAdaptive("#F0F5FF", 0.45, "#0D1728", 0.45),
 
-    cardBorder: adaptive("#B5C7E5", "#30476F"),
+    // 描边：浅色用白色描边（玻璃高光），深色用低透明蓝
+    cardBorder: glassAdaptive("#FFFFFF", 0.65, "#30476F", 0.45),
 
-    tileBg: adaptive("#EDF3FC", "#162238"),
-    tileIconBg: adaptive("#DFE9F8", "#1D3154"),
-    tileBorder: adaptive("#B7C8E6", "#2E4876"),
+    // 服务瓦片：比卡片更透一层
+    tileBg: glassAdaptive("#FFFFFF", 0.45, "#162238", 0.5),
+    tileIconBg: glassAdaptive("#FFFFFF", 0.6, "#1D3154", 0.6),
+    tileBorder: glassAdaptive("#FFFFFF", 0.5, "#2E4876", 0.4),
 
-    scoreTrack: adaptive("#D8E1EA", "#273045"),
+    scoreTrack: glassAdaptive("#D8E1EA", 0.6, "#273045", 0.7),
     scoreGlow: adaptive("#1AE27F", "#1AE27F"),
     scoreLeft: adaptive("#22C96D", "#3BE28A"),
     scoreRight: adaptive("#E25769", "#FF627A"),
 
-    footerDivider: adaptive("#C7D2E6", "#32486D"),
+    footerDivider: glassAdaptive("#C7D2E6", 0.5, "#32486D", 0.5),
 
     text: adaptive("#18253F", "#F1F5FF"),
     subtext: adaptive("#4E617F", "#BBC8E0"),
     muted: adaptive("#74839A", "#8694AE"),
 
     blue: adaptive("#2E74D2", "#70AEFF"),
-    blueSoft: adaptive("#DDEAFF", "#183B71"),
+    blueSoft: glassAdaptive("#DDEAFF", 0.6, "#183B71", 0.6),
 
     purple: adaptive("#7C63D8", "#B09AFF"),
-    purpleSoft: adaptive("#EAE3FF", "#31275A"),
+    purpleSoft: glassAdaptive("#EAE3FF", 0.6, "#31275A", 0.6),
 
     green: adaptive("#229B62", "#58D79D"),
-    greenSoft: adaptive("#DDF7E8", "#163F34"),
+    greenSoft: glassAdaptive("#DDF7E8", 0.6, "#163F34", 0.6),
 
     amber: adaptive("#B9821D", "#FFC866"),
-    amberSoft: adaptive("#FFF0D0", "#503918"),
+    amberSoft: glassAdaptive("#FFF0D0", 0.6, "#503918", 0.6),
 
     red: adaptive("#D64A59", "#FF7D88"),
-    redSoft: adaptive("#FFE2E6", "#4A232C"),
+    redSoft: glassAdaptive("#FFE2E6", 0.6, "#4A232C", 0.6),
 
     netflix: adaptive("#E50914", "#FF505B"),
     disney: adaptive("#2B76D8", "#7DB7FF"),
@@ -2424,9 +2438,7 @@ function palette() {
     chatgpt: adaptive("#1F2937", "#EAF0FF"),
     claude: adaptive("#C86B35", "#FFA26E"),
     gemini: adaptive("#6D6FE8", "#9EA9FF"),
-    deepseek: adaptive("#1D6FD8", "#61AAFF"),
-    grok: adaptive("#111827", "#F1F5FF"),
-    perplexity: adaptive("#0B88A8", "#63D9FF")
+    grok: adaptive("#111827", "#F1F5FF")
   };
 }
 
