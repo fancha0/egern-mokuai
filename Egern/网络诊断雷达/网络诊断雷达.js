@@ -2387,46 +2387,46 @@ function palette() {
     dashboardBorder: adaptive("#E3EAF500", "#07101F00"),
 
     // 卡片：半透明玻璃质感
-    card: glassAdaptive("#FFFFFF", 0.25, "#101A2D", 0.35),
-    cardTop: glassAdaptive("#FFFFFF", 0.35, "#142039", 0.4),
-    cardBottom: glassAdaptive("#F0F5FF", 0.15, "#0D1728", 0.25),
+    card: glassAdaptive("#FFFFFF", 0.08, "#101A2D", 0.18),
+    cardTop: glassAdaptive("#FFFFFF", 0.12, "#142039", 0.22),
+    cardBottom: glassAdaptive("#F0F5FF", 0.04, "#0D1728", 0.1),
 
-    proxyTop: glassAdaptive("#FFFFFF", 0.35, "#142039", 0.4),
-    proxyBottom: glassAdaptive("#F0F5FF", 0.15, "#0D1728", 0.25),
+    proxyTop: glassAdaptive("#FFFFFF", 0.12, "#142039", 0.22),
+    proxyBottom: glassAdaptive("#F0F5FF", 0.04, "#0D1728", 0.1),
 
     // 描边：浅色用白色描边（玻璃高光），深色用低透明蓝
-    cardBorder: glassAdaptive("#FFFFFF", 0.5, "#30476F", 0.35),
+    cardBorder: glassAdaptive("#FFFFFF", 0.12, "#FFFFFF", 0.12),
 
     // 服务瓦片：比卡片更透一层
-    tileBg: glassAdaptive("#FFFFFF", 0.2, "#162238", 0.3),
-    tileIconBg: glassAdaptive("#FFFFFF", 0.3, "#1D3154", 0.4),
-    tileBorder: glassAdaptive("#FFFFFF", 0.35, "#2E4876", 0.3),
+    tileBg: glassAdaptive("#FFFFFF", 0.08, "#162238", 0.16),
+    tileIconBg: glassAdaptive("#FFFFFF", 0.12, "#1D3154", 0.22),
+    tileBorder: glassAdaptive("#FFFFFF", 0.1, "#FFFFFF", 0.1),
 
-    scoreTrack: glassAdaptive("#D8E1EA", 0.35, "#273045", 0.5),
+    scoreTrack: glassAdaptive("#D8E1EA", 0.2, "#273045", 0.3),
     scoreGlow: adaptive("#1AE27F", "#1AE27F"),
     scoreLeft: adaptive("#22C96D", "#3BE28A"),
     scoreRight: adaptive("#E25769", "#FF627A"),
 
-    footerDivider: glassAdaptive("#C7D2E6", 0.3, "#32486D", 0.35),
+    footerDivider: glassAdaptive("#C7D2E6", 0.15, "#32486D", 0.2),
 
     text: adaptive("#18253F", "#F1F5FF"),
     subtext: adaptive("#4E617F", "#BBC8E0"),
     muted: adaptive("#74839A", "#8694AE"),
 
     blue: adaptive("#2E74D2", "#70AEFF"),
-    blueSoft: glassAdaptive("#DDEAFF", 0.35, "#183B71", 0.45),
+    blueSoft: glassAdaptive("#DDEAFF", 0.22, "#183B71", 0.3),
 
     purple: adaptive("#7C63D8", "#B09AFF"),
-    purpleSoft: glassAdaptive("#EAE3FF", 0.35, "#31275A", 0.45),
+    purpleSoft: glassAdaptive("#EAE3FF", 0.22, "#31275A", 0.3),
 
     green: adaptive("#229B62", "#58D79D"),
-    greenSoft: glassAdaptive("#DDF7E8", 0.35, "#163F34", 0.45),
+    greenSoft: glassAdaptive("#DDF7E8", 0.22, "#163F34", 0.3),
 
     amber: adaptive("#B9821D", "#FFC866"),
-    amberSoft: glassAdaptive("#FFF0D0", 0.35, "#503918", 0.45),
+    amberSoft: glassAdaptive("#FFF0D0", 0.22, "#503918", 0.3),
 
     red: adaptive("#D64A59", "#FF7D88"),
-    redSoft: glassAdaptive("#FFE2E6", 0.35, "#4A232C", 0.45),
+    redSoft: glassAdaptive("#FFE2E6", 0.22, "#4A232C", 0.3),
 
     netflix: adaptive("#E50914", "#FF505B"),
     disney: adaptive("#2B76D8", "#7DB7FF"),
