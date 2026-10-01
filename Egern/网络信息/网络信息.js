@@ -303,56 +303,104 @@ export default async function (ctx) {
     );
   }
 
-  function infoCard(item, tone, symbol) {
-    const titleLeft = [
-      image(symbol, uiColor(tone), 11, 11),
-      text(item.label + " IP", 10, "semibold", C.text)
-    ];
 
-    if (!item.ok) {
-      titleLeft.push(pill("查询失败", C.red, C.redSoft));
+  const now = new Date();
+  const FAMILY = clean(ctx.widgetFamily) || "systemMedium";
+
+  function ipLine(item, size, showFlag) {
+    const children = [];
+    if (showFlag && SHOW_FLAG) {
+      children.push(
+        text(flagEmoji(item.code), Math.max(size - 2, 8), "regular", C.text)
+      );
     }
+    children.push(
+      text(
+        item.ok ? displayIP(item.ip) || "未知" : "--.--.*.*",
+        size,
+        "bold",
+        uiColor(item.ok ? C.text : C.red),
+        { maxLines: 1, minScale: 0.6 }
+      )
+    );
+    return row(children, { gap: 3, alignItems: "center" });
+  }
 
+  function detailLines(item, size, detail) {
     const lines = [];
 
     if (item.location) {
-      lines.push(infoLine("位置", item.location));
+      lines.push(
+        infoLineS("位置", item.location, size, detail)
+      );
     }
 
-    if (item.isp) {
-      lines.push(infoLine("运营商", item.isp));
+    if (detail && item.isp) {
+      lines.push(infoLineS("运营商", item.isp, size, detail));
     }
 
-    if (SHOW_ASN && item.asn) {
-      lines.push(infoLine("ASN", item.asn));
+    if (detail && SHOW_ASN && item.asn) {
+      lines.push(infoLineS("ASN", item.asn, size, detail));
     }
 
-    if (SHOW_ORG && item.org) {
-      lines.push(infoLine("ORG", item.org));
+    if (detail && SHOW_ORG && item.org) {
+      lines.push(infoLineS("ORG", item.org, size, detail));
     }
 
-    const ipRowChildren = [];
+    return lines;
+  }
 
-    if (SHOW_FLAG) {
-      ipRowChildren.push(text(flagEmoji(item.code), 13, "regular", C.text));
-    }
-
-    ipRowChildren.push(
-      text(
-        item.ok ? displayIP(item.ip) || "未知" : "--.--.*.*",
-        15,
-        "bold",
-        uiColor(item.ok ? tone : C.red)
-      )
+  function infoLineS(label, value, size, detail) {
+    return row(
+      [
+        text(label, size, "medium", C.muted, { width: detail ? 34 : 0 }),
+        text(clean(value), size, "regular", C.text, {
+          maxLines: 1,
+          minScale: 0.6
+        })
+      ],
+      { gap: 4, alignItems: "center" }
     );
+  }
+
+  function miniCard(item, tone, symbol, ipSize, detail) {
+    const titleChildren = [
+      image(symbol, uiColor(tone), 9, 9),
+      text(item.label, 8, "semibold", C.text, { maxLines: 1 })
+    ];
+
+    if (!item.ok) {
+      titleChildren.push(pill("失败", C.red, C.redSoft));
+    }
+
+    const lines = detailLines(item, 8, detail);
 
     return card(
       [
-        row(
-          titleLeft.concat(item.ok ? [] : []),
-          { gap: 4, alignItems: "center" }
-        ),
-        row(ipRowChildren, { gap: 5, alignItems: "center" }),
+        row(titleChildren, { gap: 3, alignItems: "center" }),
+        ipLine(item, ipSize, true),
+        lines.length ? col(lines, { gap: 2 }) : null
+      ].filter(Boolean),
+      { gap: 3, padding: [6, 7] }
+    );
+  }
+
+  function fullCard(item, tone, symbol) {
+    const titleChildren = [
+      image(symbol, uiColor(tone), 11, 11),
+      text(item.label + " IP", 10, "semibold", C.text, { maxLines: 1 })
+    ];
+
+    if (!item.ok) {
+      titleChildren.push(pill("查询失败", C.red, C.redSoft));
+    }
+
+    const lines = detailLines(item, 8, true);
+
+    return card(
+      [
+        row(titleChildren, { gap: 4, alignItems: "center" }),
+        ipLine(item, 15, true),
         lines.length
           ? col(lines, { gap: 2 })
           : text("无详细信息", 8, "regular", C.muted)
@@ -361,32 +409,21 @@ export default async function (ctx) {
     );
   }
 
-  function infoLine(label, value) {
-    return row(
-      [
-        text(label, 8, "medium", C.muted, { width: 34 }),
-        text(clean(value), 8, "regular", C.text, {
-          maxLines: 1
-        })
-      ],
-      { gap: 4, alignItems: "center" }
-    );
-  }
-
-  function lanCard() {
+  function lanCardS() {
     const rows = [];
 
     if (SHOW_LAN && lanIPv4) {
-      rows.push(infoLine("LAN", displayIP(lanIPv4)));
+      rows.push(infoLineS("LAN", displayIP(lanIPv4), 8, false));
     }
 
     if (SHOW_IPV6 && lanIPv6) {
       rows.push(
         row(
           [
-            text("IPv6", 8, "medium", C.muted, { width: 34 }),
+            text("IPv6", 8, "medium", C.muted),
             text(displayIP(lanIPv6), 7, "regular", C.text, {
-              maxLines: 1
+              maxLines: 1,
+              minScale: 0.6
             })
           ],
           { gap: 4, alignItems: "center" }
@@ -400,44 +437,215 @@ export default async function (ctx) {
       [
         row(
           [
-            image("house.fill", uiColor(C.green), 11, 11),
-            text("本机", 10, "semibold", C.text)
+            image("house.fill", uiColor(C.green), 10, 10),
+            text("本机", 9, "semibold", C.text)
           ],
-          { gap: 4, alignItems: "center" }
+          { gap: 3, alignItems: "center" }
         ),
         col(rows, { gap: 2 })
       ],
-      { gap: 4 }
+      { gap: 3, padding: [6, 7] }
     );
   }
 
-  const now = new Date();
+  function headerS(titleSize, showTime) {
+    const children = [text("🛰️ 网络信息", titleSize, "bold", C.text)];
+    if (showTime) {
+      children.push(spacer());
+      children.push(text(timeLabel(now), 9, "medium", C.muted));
+    }
+    return row(children, { alignItems: "center" });
+  }
 
-  const children = [
-    row(
-      [
-        text("🛰️ 网络信息", 12, "bold", C.text),
-        spacer(),
-        text(timeLabel(now), 9, "medium", C.muted)
-      ],
-      { alignItems: "center" }
-    ),
-    infoCard(domestic, C.blue, "location.fill"),
-    infoCard(landing, C.purple, "globe.asia.australia.fill")
-  ];
+  function buildWidget() {
+    if (FAMILY === "accessoryInline") {
+      return {
+        type: "widget",
+        children: [
+          text(
+            "国内 " +
+              flagEmoji(domestic.code) +
+              " " +
+              (domestic.ok ? displayIP(domestic.ip) : "--") +
+              " · 落地 " +
+              flagEmoji(landing.code) +
+              " " +
+              (landing.ok ? displayIP(landing.ip) : "--"),
+            12,
+            "regular",
+            C.text,
+            { maxLines: 1, minScale: 0.5 }
+          )
+        ]
+      };
+    }
 
-  const lan = lanCard();
-  if (lan) children.push(lan);
+    if (FAMILY === "accessoryCircular") {
+      return {
+        type: "widget",
+        children: [
+          col(
+            [
+              text(flagEmoji(landing.code), 14, "regular", C.text),
+              text(
+                landing.ok ? displayIP(landing.ip) : "--",
+                9,
+                "bold",
+                uiColor(C.text),
+                { maxLines: 1, minScale: 0.5, textAlign: "center" }
+              )
+            ],
+            { alignItems: "center", gap: 1 }
+          )
+        ]
+      };
+    }
 
-  return {
-    type: "widget",
-    padding: 10,
-    gap: 6,
-    refreshAfter: new Date(
-      Date.now() + REFRESH_MINUTES * 60 * 1000
-    ).toISOString(),
-    children: children
-  };
+    if (FAMILY === "accessoryRectangular") {
+      return {
+        type: "widget",
+        children: [
+          col(
+            [
+              row(
+                [
+                  text("落地 ", 11, "medium", C.muted),
+                  ipLine(landing, 12, true)
+                ],
+                { gap: 2, alignItems: "center" }
+              ),
+              row(
+                [
+                  text("国内 ", 11, "medium", C.muted),
+                  ipLine(domestic, 12, true)
+                ],
+                { gap: 2, alignItems: "center" }
+              ),
+              text(
+                joinLocation(landing.location) ||
+                  landing.isp ||
+                  "",
+                10,
+                "regular",
+                C.text,
+                { maxLines: 1, minScale: 0.5 }
+              )
+            ],
+            { gap: 2, alignItems: "start" }
+          )
+        ]
+      };
+    }
+
+    if (FAMILY === "systemSmall") {
+      return {
+        type: "widget",
+        padding: 8,
+        gap: 5,
+        refreshAfter: new Date(
+          Date.now() + REFRESH_MINUTES * 60 * 1000
+        ).toISOString(),
+        children: [
+          headerS(10, false),
+          card(
+            [
+              row(
+                [
+                  text("落地", 8, "semibold", uiColor(C.purple)),
+                  ipLine(landing, 12, true)
+                ],
+                { gap: 3, alignItems: "center" }
+              ),
+              text(
+                joinLocation(landing.location) || landing.isp || " ",
+                8,
+                "regular",
+                C.muted,
+                { maxLines: 1, minScale: 0.6 }
+              ),
+              row(
+                [
+                  text("国内", 8, "semibold", uiColor(C.blue)),
+                  ipLine(domestic, 11, true)
+                ],
+                { gap: 3, alignItems: "center" }
+              ),
+              text(
+                joinLocation(domestic.location) || domestic.isp || " ",
+                8,
+                "regular",
+                C.muted,
+                { maxLines: 1, minScale: 0.6 }
+              )
+            ],
+            { gap: 3, padding: [6, 7] }
+          )
+        ]
+      };
+    }
+
+    if (FAMILY === "systemMedium") {
+      return {
+        type: "widget",
+        padding: 8,
+        gap: 5,
+        refreshAfter: new Date(
+          Date.now() + REFRESH_MINUTES * 60 * 1000
+        ).toISOString(),
+        children: [
+          headerS(10, true),
+          row(
+            [
+              miniCard(domestic, C.blue, "location.fill", 11, false),
+              miniCard(landing, C.purple, "globe.asia.australia.fill", 11, false)
+            ],
+            { gap: 5, alignItems: "start" }
+          )
+        ]
+      };
+    }
+
+    if (FAMILY === "systemLarge") {
+      const lan = lanCardS();
+      const children = [
+        headerS(11, true),
+        fullCard(domestic, C.blue, "location.fill"),
+        fullCard(landing, C.purple, "globe.asia.australia.fill")
+      ];
+      if (lan) children.push(lan);
+
+      return {
+        type: "widget",
+        padding: 10,
+        gap: 6,
+        refreshAfter: new Date(
+          Date.now() + REFRESH_MINUTES * 60 * 1000
+        ).toISOString(),
+        children: children
+      };
+    }
+
+    // systemExtraLarge 及未知尺寸：完整布局
+    const lan = lanCardS();
+    const children = [
+      headerS(12, true),
+      fullCard(domestic, C.blue, "location.fill"),
+      fullCard(landing, C.purple, "globe.asia.australia.fill")
+    ];
+    if (lan) children.push(lan);
+
+    return {
+      type: "widget",
+      padding: 10,
+      gap: 6,
+      refreshAfter: new Date(
+        Date.now() + REFRESH_MINUTES * 60 * 1000
+      ).toISOString(),
+      children: children
+    };
+  }
+
+  return buildWidget();
 
   // ======================== 基础组件 ========================
 
