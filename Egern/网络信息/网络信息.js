@@ -76,12 +76,10 @@ export default async function (ctx) {
   async function safeGet(url, options) {
     try {
       const response = await ctx.http.get(url, options);
-      const status = Number(response.status || response.statusCode || 0);
+      const status = Number(response.status || 0);
 
       if (status >= 200 && status < 300) {
-        return response.body !== undefined
-          ? response.body
-          : response.data;
+        return (await response.text()) || "";
       }
     } catch (_) {}
 
@@ -154,7 +152,7 @@ export default async function (ctx) {
         directOptions()
       );
       const text = clean(body);
-      const match = text.match(/IP[::]\s*(\S+)\s+来自于[::]\s*(.+)/);
+      const match = text.match(/IP：\s*(\S+)\s+来自于：\s*(.+)/);
 
       if (match) {
         const parts = match[2].split(/\s+/).filter(Boolean);
