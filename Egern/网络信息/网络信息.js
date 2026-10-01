@@ -447,11 +447,12 @@ export default async function (ctx) {
     return merge(
       {
         type: "text",
-        text: String(value === undefined || value === null ? "" : value),
-        fontSize: size,
-        fontWeight: weight || "regular",
-        color: color || C.text,
-        maxLines: 0
+        text: String(value),
+        font: {
+          size: size,
+          weight: weight || "regular"
+        },
+        textColor: color || C.text
       },
       extra || {}
     );
@@ -497,10 +498,9 @@ export default async function (ctx) {
   }
 
   function spacer(length) {
-    return {
-      type: "spacer",
-      length: typeof length === "number" ? length : 0
-    };
+    return length === undefined
+      ? { type: "spacer" }
+      : { type: "spacer", length: length };
   }
 
   function card(children, extra) {
@@ -508,10 +508,9 @@ export default async function (ctx) {
       {
         type: "stack",
         direction: "column",
-        children: children,
+        children: children || [],
         alignItems: "start",
         gap: 4,
-        width: null,
         padding: [7, 8],
         backgroundColor: C.cardBg,
         borderRadius: 12,
@@ -523,17 +522,23 @@ export default async function (ctx) {
   }
 
   function pill(value, tone, fill, extra) {
-    return {
-      type: "text",
-      text: value,
-      fontSize: 7,
-      fontWeight: "semibold",
-      color: uiColor(tone),
-      maxLines: 1,
-      padding: [2, 5],
-      backgroundColor: uiColor(fill),
-      borderRadius: 99
-    };
+    return row(
+      [
+        text(value, 6, "semibold", uiColor(tone), {
+          maxLines: 1,
+          minScale: 0.72,
+          textAlign: "center"
+        })
+      ],
+      merge(
+        {
+          padding: [2, 5],
+          backgroundColor: uiColor(fill),
+          borderRadius: 8
+        },
+        extra || {}
+      )
+    );
   }
 
   function merge(a, b) {
