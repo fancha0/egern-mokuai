@@ -1,0 +1,100 @@
+# ==========================================
+# 📌 模块名称: 网络信息
+# ✨ 主要功能: 国内/落地 IP、位置、运营商、ASN/ORG、LAN、IPv6
+# 🎨 界面风格: iOS 26 液态玻璃
+# 🙏 灵感来源: Surge 模块「网络信息 𝕏」(xream/scripts, GPL-3.0)
+# ⏱️ 2026.10.02
+# ==========================================
+# 环境变量：
+# - DOMESTIC：国内 IP 来源，bilibili（默认）/ ipip / ip233
+# - LANDING：落地 IP 来源，ipwhois（默认）/ ipapi
+# - POLICY：落地查询走的策略组；留空走默认规则
+# - DIRECT：国内查询直连策略名，默认 DIRECT
+# - FLAG=0：关闭国旗显示（默认开）
+# - ASN=1 / ORG=1：显示 ASN / ORG（默认关）
+# - YS=1：IP 打码 123.123.123.123 -> 123.123.*.*
+# - LAN=0：隐藏局域网 IP（默认开）
+# - IPv6=1：显示 IPv6 地址（默认关）
+
+name: "网络信息"
+description: "国内/落地双 IP 信息面板：位置、运营商、ASN/ORG、LAN、IPv6（液态玻璃风格）"
+author: "fancha0"
+homepage: "https://github.com/fancha0/egern-mokuai"
+
+env_schema:
+  DOMESTIC:
+    name: "国内 IP 来源"
+    description: "bilibili / ipip / ip233，自动兜底"
+    default_value: "bilibili"
+    options:
+      - "bilibili"
+      - "ipip"
+      - "ip233"
+  LANDING:
+    name: "落地 IP 来源"
+    description: "ipwhois / ipapi，自动兜底"
+    default_value: "ipwhois"
+    options:
+      - "ipwhois"
+      - "ipapi"
+  POLICY:
+    name: "落地策略（可选）"
+    description: "落地查询走的策略组；留空走默认规则"
+    default_value: ""
+  DIRECT:
+    name: "直连策略名"
+    description: "国内查询走该策略直连出网"
+    default_value: "DIRECT"
+  FLAG:
+    name: "国旗"
+    description: "1 显示 / 0 隐藏"
+    default_value: "1"
+    options:
+      - "1"
+      - "0"
+  ASN:
+    name: "ASN"
+    description: "1 显示 / 0 隐藏"
+    default_value: "0"
+    options:
+      - "0"
+      - "1"
+  ORG:
+    name: "ORG"
+    description: "1 显示 / 0 隐藏"
+    default_value: "0"
+    options:
+      - "0"
+      - "1"
+  YS:
+    name: "IP 打码"
+    description: "1 开启 123.123.*.*"
+    default_value: "0"
+    options:
+      - "0"
+      - "1"
+  LAN:
+    name: "局域网 IP"
+    description: "1 显示 / 0 隐藏"
+    default_value: "1"
+    options:
+      - "1"
+      - "0"
+  IPv6:
+    name: "IPv6"
+    description: "1 显示 / 0 隐藏"
+    default_value: "0"
+    options:
+      - "0"
+      - "1"
+
+scriptings:
+  - generic:
+      name: "网络信息"
+      script_url: "https://raw.githubusercontent.com/fancha0/egern-mokuai/main/Egern/网络信息/网络信息.js"
+      update_interval: 43200
+      timeout: 30
+
+widgets:
+  - name: "网络信息"
+    script_name: "网络信息"
