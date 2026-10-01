@@ -326,25 +326,24 @@ export default async function (ctx) {
     return row(children, { gap: 3, alignItems: "center" });
   }
 
+  // detail：0 = 仅位置；1 = +运营商；2 = +ASN/ORG
   function detailLines(item, size, detail) {
     const lines = [];
 
     if (item.location) {
-      lines.push(
-        infoLineS("位置", item.location, size, detail)
-      );
+      lines.push(infoLineS("位置", item.location, size, detail >= 1));
     }
 
-    if (detail && item.isp) {
-      lines.push(infoLineS("运营商", item.isp, size, detail));
+    if (detail >= 1 && item.isp) {
+      lines.push(infoLineS("运营商", item.isp, size, detail >= 1));
     }
 
-    if (detail && SHOW_ASN && item.asn) {
-      lines.push(infoLineS("ASN", item.asn, size, detail));
+    if (detail >= 2 && SHOW_ASN && item.asn) {
+      lines.push(infoLineS("ASN", item.asn, size, detail >= 1));
     }
 
-    if (detail && SHOW_ORG && item.org) {
-      lines.push(infoLineS("ORG", item.org, size, detail));
+    if (detail >= 2 && SHOW_ORG && item.org) {
+      lines.push(infoLineS("ORG", item.org, size, detail >= 1));
     }
 
     return lines;
@@ -395,7 +394,7 @@ export default async function (ctx) {
       titleChildren.push(pill("查询失败", C.red, C.redSoft));
     }
 
-    const lines = detailLines(item, 8, true);
+    const lines = detailLines(item, 8, 2);
 
     return card(
       [
@@ -585,6 +584,40 @@ export default async function (ctx) {
     }
 
     if (FAMILY === "systemMedium") {
+      const lanBits = [];
+      if (SHOW_LAN && lanIPv4) {
+        lanBits.push("LAN " + displayIP(lanIPv4));
+      }
+      if (SHOW_IPV6 && lanIPv6) {
+        lanBits.push("IPv6 " + displayIP(lanIPv6));
+      }
+
+      const children = [
+        headerS(10, true),
+        row(
+          [
+            miniCard(domestic, C.blue, "location.fill", 12, 1),
+            miniCard(landing, C.purple, "globe.asia.australia.fill", 12, 1)
+          ],
+          { gap: 5, alignItems: "start" }
+        )
+      ];
+
+      if (lanBits.length) {
+        children.push(
+          row(
+            [
+              image("house.fill", uiColor(C.green), 8, 8),
+              text(lanBits.join(" · "), 8, "regular", C.muted, {
+                maxLines: 1,
+                minScale: 0.6
+              })
+            ],
+            { gap: 3, alignItems: "center" }
+          )
+        );
+      }
+
       return {
         type: "widget",
         padding: 8,
@@ -592,16 +625,7 @@ export default async function (ctx) {
         refreshAfter: new Date(
           Date.now() + REFRESH_MINUTES * 60 * 1000
         ).toISOString(),
-        children: [
-          headerS(10, true),
-          row(
-            [
-              miniCard(domestic, C.blue, "location.fill", 11, false),
-              miniCard(landing, C.purple, "globe.asia.australia.fill", 11, false)
-            ],
-            { gap: 5, alignItems: "start" }
-          )
-        ]
+        children: children
       };
     }
 
