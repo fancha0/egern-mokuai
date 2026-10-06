@@ -495,7 +495,12 @@ export default async function (ctx) {
     }
     lines.push(text("来源  " + (item.source || "--"), 7,
       "medium", C.muted, { maxLines: 1 }));
-    return card(lines, { flex: 1, height: 136, gap: 5, padding: [7, 8] });
+    return card(lines, {
+      flex: 1,
+      height: 158,
+      gap: 5,
+      padding: [8, 9]
+    });
   }
 
   function largeLocalCard() {
@@ -728,9 +733,22 @@ export default async function (ctx) {
           row([
             largeIpCard(domestic, C.blue, "location.fill"),
             largeIpCard(landing, C.purple, "globe.asia.australia.fill")
-          ], { gap: 6, alignItems: "start" }),
-          largeLocalCard(),
-          largeRouteCard()
+          ], { gap: 6, alignItems: "start", height: 158 }),
+          row([
+            col([
+              largeLocalCard(),
+              largeRouteCard()
+            ], { gap: 5, flex: 1 }),
+            card([
+              row([
+                image("chart.bar.xaxis", uiColor(C.purple), 11, 11),
+                text("网络摘要", 10, "semibold", C.text)
+              ], { gap: 4, alignItems: "center" }),
+              infoLineS("国内", domestic.ok ? "已连接 · " + (domestic.source || "--") : "查询失败", 8, true),
+              infoLineS("落地", landing.ok ? "已连接 · " + (landing.source || "--") : "查询失败", 8, true),
+              infoLineS("刷新", "每 30 分钟", 8, true)
+            ], { flex: 1, gap: 5, padding: [7, 8] })
+          ], { gap: 6, alignItems: "start", flex: 1 })
         ]
       };
     }
