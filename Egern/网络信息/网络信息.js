@@ -138,11 +138,11 @@ export default async function (ctx) {
       const data = parseJSON(body);
       const info = data && data.data;
 
-      if (info && info.addr) {
+      if (info && (info.addr || info.ip)) {
         return {
           ok: true,
           label: "国内",
-          ip: clean(info.ip) || "",
+          ip: clean(info.ip) || extractIPv4(info.addr),
           location: [
             clean(info.country),
             clean(info.province),
@@ -922,6 +922,13 @@ function resolveAdaptiveColor(value, scheme) {
   }
 
   return "";
+}
+
+function extractIPv4(value) {
+  const match = String(value || "").match(
+    /\b(?:\d{1,3}\.){3}\d{1,3}\b/
+  );
+  return match ? match[0] : "";
 }
 
 function joinLocation() {
