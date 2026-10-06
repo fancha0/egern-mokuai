@@ -12,8 +12,10 @@
  * - FLAG=1：显示国旗（默认开）
  * - ASN=1 / ORG=1：显示 ASN / ORG（默认关）
  * - YS=1：IP 打码，例如 123.123.123.123 -> 123.123.*.*
- * - LAN=1：显示局域网 IP（默认开）
+ * - LAN=1：显示本机 IP、网关、网络接口（默认开）
  * - IPv6=1：显示 IPv6 地址（默认关）
+ * - DNS=0：隐藏 DNS 服务器（默认显示）
+ * - SSID=1：显示 Wi-Fi 名称（默认关）
  */
 
 export default async function (ctx) {
@@ -31,17 +33,26 @@ export default async function (ctx) {
   const MASK_IP = clean(env.YS) === "1";
   const SHOW_LAN = clean(env.LAN) !== "0";
   const SHOW_IPV6 = clean(env.IPv6) === "1";
+  const SHOW_SSID = clean(env.SSID) === "1";
+  const SHOW_DNS = clean(env.DNS) !== "0";
 
   const TIMEOUT = 5000;
   const REFRESH_MINUTES = 30;
 
   const device = ctx.device || {};
-  const lanIPv4 = clean(
-    pick(getAt(device, "wifi.ipv4"), getAt(device, "cellular.ipv4"))
+  // Egern 文档：ctx.device.ipv4/ipv6 是对象，不在 wifi/cellular 下。
+  const lanIPv4 = clean(getAt(device, "ipv4.address"));
+  const lanIPv6 = clean(getAt(device, "ipv6.address"));
+  const gateway = clean(getAt(device, "ipv4.gateway"));
+  const networkInterface = clean(
+    pick(getAt(device, "ipv4.interface"), getAt(device, "ipv6.interface"))
   );
-  const lanIPv6 = clean(
-    pick(getAt(device, "wifi.ipv6"), getAt(device, "cellular.ipv6"))
-  );
+  const wifiName = clean(getAt(device, "wifi.ssid"));
+  const carrier = clean(getAt(device, "cellular.carrier"));
+  const radio = clean(getAt(device, "cellular.radio"));
+  const dnsServers = Array.isArray(device.dnsServers)
+    ? device.dnsServers.filter(Boolean).map(clean)
+    : [];
 
   const domestic = await queryDomestic();
   const landing = await queryLanding();
@@ -108,6 +119,7 @@ export default async function (ctx) {
     for (const source of order) {
       const result = await domesticBy(source);
       if (result && result.ok) {
+        result.source = source;
         return result;
       }
     }
@@ -218,6 +230,7 @@ export default async function (ctx) {
     for (const source of order) {
       const result = await landingBy(source);
       if (result && result.ok) {
+        result.source = source;
         return result;
       }
     }
@@ -456,6 +469,79 @@ export default async function (ctx) {
     return row(children, { alignItems: "center" });
   }
 
+  // 大号：紧凑双列概览，下方展示设备网络与查询路径。
+  function largeIpCard(item, tone, symbol) {
+    const lines = [
+      row([
+        image(symbol, uiColor(tone), 10, 10),
+        text(item.label + " IP", 9, "semibold", C.text),
+        spacer(),
+        text(item.ok ? "已获取" : "查询失败", 7, "medium",
+          item.ok ? C.green : C.red)
+      ], { gap: 3, alignItems: "center" }),
+      ipLine(item, 13, true),
+      text(item.location || "位置未知", 8, "regular", C.muted,
+        { maxLines: 1, minScale: 0.55 }),
+      text("运营商  " + (item.isp || "--"), 8, "regular", C.text,
+        { maxLines: 1, minScale: 0.55 })
+    ];
+    if (SHOW_ASN && item.asn) {
+      lines.push(text("ASN  " + item.asn, 7, "regular", C.muted,
+        { maxLines: 1 }));
+    }
+    if (SHOW_ORG && item.org) {
+      lines.push(text("ORG  " + item.org, 7, "regular", C.muted,
+        { maxLines: 1, minScale: 0.55 }));
+    }
+    lines.push(text("来源  " + (item.source || "--"), 7,
+      "medium", C.muted, { maxLines: 1 }));
+    return card(lines, { flex: 1, height: 136, gap: 5, padding: [7, 8] });
+  }
+
+  function largeLocalCard() {
+    const localRows = [];
+    if (SHOW_LAN) {
+      localRows.push(infoLineS("本机 IP", displayIP(lanIPv4) || "未提供", 8, true));
+      localRows.push(infoLineS("网关", displayIP(gateway) || "未提供", 8, true));
+    }
+    if (SHOW_IPV6) {
+      localRows.push(infoLineS("IPv6", displayIP(lanIPv6) || "未提供", 8, true));
+    }
+    if (SHOW_DNS) {
+      localRows.push(infoLineS("DNS", dnsServers.length
+        ? displayIP(dnsServers[0]) : "未提供", 8, true));
+    }
+    if (SHOW_SSID) {
+      localRows.push(infoLineS("Wi-Fi", MASK_IP ? "已隐藏" :
+        (wifiName || "未提供"), 8, true));
+    }
+    if (carrier) {
+      localRows.push(infoLineS("蜂窝", carrier + (radio ? " " + radio : ""), 8, true));
+    }
+    if (!localRows.length) {
+      localRows.push(text("已关闭本机网络信息显示", 8, "regular", C.muted));
+    }
+    return card([
+      row([image("wifi", uiColor(C.green), 11, 11),
+        text("本机网络", 10, "semibold", C.text), spacer(),
+        text(networkInterface || "", 8, "regular", C.muted)],
+        { gap: 4, alignItems: "center" }),
+      col(localRows, { gap: 3 })
+    ], { gap: 5, padding: [7, 8] });
+  }
+
+  function largeRouteCard() {
+    return card([
+      row([image("arrow.triangle.branch", uiColor(C.blue), 10, 10),
+        text("查询路径", 9, "semibold", C.text), spacer(),
+        text("更新 " + timeLabel(now), 8, "medium", C.muted)],
+        { gap: 4, alignItems: "center" }),
+      text("国内 " + DIRECT_POLICY + " · 落地 " +
+        (POLICY || "默认规则"), 8, "regular", C.text,
+        { maxLines: 1, minScale: 0.6 })
+    ], { gap: 3, padding: [6, 8] });
+  }
+
   function buildWidget() {
     if (FAMILY === "accessoryInline") {
       return {
@@ -630,22 +716,22 @@ export default async function (ctx) {
     }
 
     if (FAMILY === "systemLarge") {
-      const lan = lanCardS();
-      const children = [
-        headerS(11, true),
-        fullCard(domestic, C.blue, "location.fill"),
-        fullCard(landing, C.purple, "globe.asia.australia.fill")
-      ];
-      if (lan) children.push(lan);
-
       return {
         type: "widget",
-        padding: 10,
+        padding: 9,
         gap: 6,
         refreshAfter: new Date(
           Date.now() + REFRESH_MINUTES * 60 * 1000
         ).toISOString(),
-        children: children
+        children: [
+          headerS(11, true),
+          row([
+            largeIpCard(domestic, C.blue, "location.fill"),
+            largeIpCard(landing, C.purple, "globe.asia.australia.fill")
+          ], { gap: 6, alignItems: "start" }),
+          largeLocalCard(),
+          largeRouteCard()
+        ]
       };
     }
 

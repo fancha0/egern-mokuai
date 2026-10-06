@@ -15,6 +15,8 @@
 # - YS=1：IP 打码 123.123.123.123 -> 123.123.*.*
 # - LAN=0：隐藏局域网 IP（默认开）
 # - IPv6=1：显示 IPv6 地址（默认关）
+# - DNS=0：隐藏 DNS 服务器（默认开）
+# - SSID=1：显示 Wi-Fi 名称（默认关；公开截图请注意隐私）
 
 name: "网络信息"
 description: "国内/落地双 IP 信息面板：位置、运营商、ASN/ORG、LAN、IPv6（液态玻璃风格）"
@@ -83,6 +85,20 @@ env_schema:
   IPv6:
     name: "IPv6"
     description: "1 显示 / 0 隐藏"
+    default_value: "0"
+    options:
+      - "0"
+      - "1"
+  DNS:
+    name: "DNS 服务器"
+    description: "大号组件显示 Egern 提供的 DNS 列表"
+    default_value: "1"
+    options:
+      - "1"
+      - "0"
+  SSID:
+    name: "Wi-Fi 名称"
+    description: "大号组件显示 Wi-Fi 名称；公开截图建议关闭"
     default_value: "0"
     options:
       - "0"
